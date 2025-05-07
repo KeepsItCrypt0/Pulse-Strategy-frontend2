@@ -41,16 +41,21 @@ const IssuePLSTR = ({ web3, contract, account }) => {
         if (amount && Number(amount) > 0) {
           console.log("Fetching estimate for amount:", amount);
           const amountNum = Number(amount);
-          const amountWei = web3.utils.toWei(amountNum.toString(), "ether");
-          const result = await contract.methods.calculateSharesReceived(amountWei).call();
-          const shares = web3.utils.fromWei(result.shares, "ether");
-          const fee = web3.utils.fromWei(result.fee, "ether");
-          setEstimatedPLSTR(formatNumber(shares));
+          const fee = amountNum * 0.005; // 0.5% fee
+          const effectiveAmount = amountNum * 0.995; // Amount after fee
+          const amountWei = web3.utils.toWei(effectiveAmount.toFixed(18), "ether");
+          const ratio = await contract.methods.getVPLSBackingRatio().call();
+          console.log("Backing ratio raw:", ratio);
+          const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
+          const estimated = effectiveAmount * ratioDecimal;
+          setEstimatedPLSTR(formatNumber(estimated));
           setEstimatedFee(formatNumber(fee));
           console.log("Estimate calculated:", {
             amount: amountNum,
-            shares,
             fee,
+            effectiveAmount,
+            ratioDecimal,
+            estimatedPLSTR: estimated,
           });
         } else {
           setEstimatedPLSTR("0");
