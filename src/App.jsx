@@ -12,7 +12,6 @@ function App() {
   const [contract, setContract] = useState(null);
   const [account, setAccount] = useState(null);
   const [isController, setIsController] = useState(false);
-  const [debugInfo, setDebugInfo] = useState({ network: "Unknown", contract: "Unknown" });
 
   useEffect(() => {
     const init = async () => {
@@ -25,15 +24,9 @@ function App() {
         setContract(contractInstance);
         const owner = await contractInstance.methods.owner().call();
         setIsController(accounts[0]?.toLowerCase() === owner.toLowerCase());
-        const chainId = await web3Instance.eth.getChainId();
-        setDebugInfo({
-          network: chainId === 1 ? "Ethereum Mainnet" : `Chain ID: ${chainId}`,
-          contract: contractAddress,
-        });
-        console.log("App initialized:", { account: accounts[0], chainId, owner });
+        console.log("App initialized:", { account: accounts[0], owner });
       } catch (error) {
         console.error("Web3 initialization failed:", error);
-        setDebugInfo((prev) => ({ ...prev, contract: `Failed: ${error.message}` }));
       }
     };
     init();
@@ -58,11 +51,6 @@ function App() {
         ) : (
           <p className="text-center text-white">Please connect your wallet to interact with the contract.</p>
         )}
-        <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
-          <h2 className="text-xl font-semibold mb-4 text-purple-600">Debug Information</h2>
-          <p><strong>Network:</strong> {debugInfo.network}</p>
-          <p><strong>Contract Address:</strong> {debugInfo.contract}</p>
-        </div>
       </main>
       <footer className="mt-12 text-center text-white">
         <p className="mb-4">
