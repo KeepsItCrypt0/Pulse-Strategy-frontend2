@@ -176,6 +176,13 @@ const AdminPanel = ({ web3, contract, account }) => {
             disabled={loading || !newController}
             className={loading || !newController ? "btn-disabled" : "btn-primary"}
           >
-            {loading ? "Processing..." : "Transfer...
+            {loading ? "Processing..." : "Transfer Ownership"}
+          </button>
+        </div>
+      </div>
+      {error && <p className="text-red-400 mt-4">{error}</p>}
+    </div>
+  );
+};
 
-Something went wrong, please refresh to reconnect or try again.
+export default AdminPanel;
