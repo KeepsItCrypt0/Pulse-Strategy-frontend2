@@ -17,18 +17,20 @@ const getWeb3 = async () => {
       await window.ethereum.request({ method: "eth_requestAccounts" });
       const chainId = await web3.eth.getChainId();
       if (chainId !== 1) {
-        throw new Error("Please switch to Ethereum Mainnet");
+        console.warn("Wallet is not on Ethereum Mainnet (chain ID 1). Some features may not work.");
+        // Allow connection but warn user
       }
       return web3;
     } catch (error) {
-      console.error("Web3 wallet connection failed:", error);
-      throw error;
+      console.error("Wallet connection failed:", error);
+      throw new Error(`Failed to connect wallet: ${error.message}`);
     }
   } else {
     for (const url of rpcUrls) {
       try {
         const web3 = new Web3(url);
         await web3.eth.getBlockNumber(); // Test RPC
+        console.log(`Connected to RPC: ${url}`);
         return web3;
       } catch (error) {
         console.error(`RPC ${url} failed:`, error);
