@@ -7,20 +7,8 @@ const ContractInfo = ({ contract, web3 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const formatNumber = (value) => {
-    try {
-      // Handle string or number input
-      const num = typeof value === "string" ? parseFloat(value) : Number(value);
-      if (isNaN(num)) {
-        console.error("formatNumber: Invalid number input:", value);
-        return "0";
-      }
-      // Show integer if no decimals, otherwise up to 4 decimals without trailing zeros
-      return num % 1 === 0 ? num.toString() : num.toFixed(4).replace(/\.?0+$/, "");
-    } catch (err) {
-      console.error("formatNumber error:", err, { value });
-      return "0";
-    }
+  const formatNumber = (num) => {
+    return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
   };
 
   const fetchInfo = async () => {
@@ -35,9 +23,9 @@ const ContractInfo = ({ contract, web3 }) => {
       const totalIssued = await contract.methods.totalSupply().call();
       const ratioDecimal = web3.utils.fromWei(ratio, "ether");
       setInfo({
-        balance: formatNumber(web3.utils.fromWei(result.contractBalance, "ether")),
+        balance: web3.utils.fromWei(result.contractBalance, "ether"),
         issuancePeriod: result.remainingIssuancePeriod,
-        totalIssued: formatNumber(web3.utils.fromWei(totalIssued, "ether")),
+        totalIssued: web3.utils.fromWei(totalIssued, "ether"),
       });
       setBackingRatio(formatNumber(ratioDecimal));
       console.log("Contract info fetched:", {
@@ -46,7 +34,6 @@ const ContractInfo = ({ contract, web3 }) => {
         totalIssued,
         ratioRaw: ratio,
         ratioDecimal,
-        formattedRatio: formatNumber(ratioDecimal),
       });
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
