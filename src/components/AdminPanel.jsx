@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { ethers } from "ethers";
+import { useState } from "react";
 import { getVPLSContract } from "../web3";
 
 const AdminPanel = ({ web3, contract, account }) => {
@@ -9,38 +8,25 @@ const AdminPanel = ({ web3, contract, account }) => {
   const [recoverAmount, setRecoverAmount] = useState("");
   const [recoverRecipient, setRecoverRecipient] = useState("");
   const [newController, setNewController] = useState("");
-  const [nextMintTime, setNextMintTime] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const fetchMintInfo = async () => {
-      try {
-        const nextMint = await contract.methods.getOwnerMintInfo().call();
-        setNextMintTime(Number(nextMint));
-      } catch (err) {
-        console.error("Failed to fetch mint info:", err);
-        setError(`Failed to load mint info: ${err.message || "Method may not exist"}`);
-        setNextMintTime(0); // Fallback to avoid breaking UI
-      }
-    };
-    if (contract) fetchMintInfo();
-  }, [contract]);
 
   const handleDeposit = async () => {
     setLoading(true);
     setError("");
     try {
       const vPLSContract = await getVPLSContract(web3);
-      const amountWei = ethers.utils.parseEther(depositAmount);
+      const amountWei = web3.utils.toWei(depositAmount, "ether");
       await vPLSContract.methods
         .approve(contract._address, amountWei)
         .send({ from: account });
       await contract.methods.depositStakedPLS(amountWei).send({ from: account });
       alert("Deposit successful!");
       setDepositAmount("");
+      console.log("Deposit successful:", { amountWei });
     } catch (err) {
       setError(`Error depositing: ${err.message || "Unknown error"}`);
+      console.error("Deposit error:", err);
     } finally {
       setLoading(false);
     }
@@ -50,12 +36,14 @@ const AdminPanel = ({ web3, contract, account }) => {
     setLoading(true);
     setError("");
     try {
-      const amountWei = ethers.utils.parseEther(mintAmount);
+      const amountWei = web3.utils.toWei(mintAmount, "ether");
       await contract.methods.mintShares(amountWei).send({ from: account });
       alert("PLSTR minted successfully!");
       setMintAmount("");
+      console.log("PLSTR minted:", { amountWei });
     } catch (err) {
       setError(`Error minting PLSTR: ${err.message || "Unknown error"}`);
+      console.error("Mint error:", err);
     } finally {
       setLoading(false);
     }
@@ -65,7 +53,7 @@ const AdminPanel = ({ web3, contract, account }) => {
     setLoading(true);
     setError("");
     try {
-      const amountWei = ethers.utils.parseEther(recoverAmount);
+      const amountWei = web3.utils.toWei(recoverAmount, "ether");
       await contract.methods
         .recoverTokens(recoverToken, recoverRecipient, amountWei)
         .send({ from: account });
@@ -73,8 +61,10 @@ const AdminPanel = ({ web3, contract, account }) => {
       setRecoverToken("");
       setRecoverAmount("");
       setRecoverRecipient("");
+      console.log("Tokens recovered:", { token: recoverToken, recipient: recoverRecipient, amountWei });
     } catch (err) {
       setError(`Error recovering tokens: ${err.message || "Unknown error"}`);
+      console.error("Recover error:", err);
     } finally {
       setLoading(false);
     }
@@ -87,8 +77,10 @@ const AdminPanel = ({ web3, contract, account }) => {
       await contract.methods.transferOwnership(newController).send({ from: account });
       alert("Ownership transferred successfully!");
       setNewController("");
+      console.log("Ownership transferred:", { newController });
     } catch (err) {
       setError(`Error transferring ownership: ${err.message || "Unknown error"}`);
+      console.error("Transfer ownership error:", err);
     } finally {
       setLoading(false);
     }
@@ -118,9 +110,6 @@ const AdminPanel = ({ web3, contract, account }) => {
         </div>
         <div>
           <h3 className="text-lg font-medium mb-2 text-purple-600">Mint PLSTR</h3>
-          <p className="text-gray-600">
-            Next Mint Available: {nextMintTime === null ? "Loading..." : nextMintTime === 0 ? "Not available" : new Date(nextMintTime * 1000).toLocaleString()}
-          </p>
           <input
             type="number"
             value={mintAmount}
