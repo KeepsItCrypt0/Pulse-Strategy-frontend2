@@ -5,6 +5,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   const [amount, setAmount] = useState("");
   const [vPLSBalance, setVPLSBalance] = useState("0");
   const [estimatedPLSTR, setEstimatedPLSTR] = useState("0");
+  const [estimatedFee, setEstimatedFee] = useState("0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,14 +33,19 @@ const IssuePLSTR = ({ web3, contract, account }) => {
     const fetchEstimate = async () => {
       try {
         if (amount && Number(amount) > 0) {
-          const amountWei = web3.utils.toWei(amount, "ether");
+          const amountNum = Number(amount);
+          const fee = amountNum * 0.005; // 0.5% fee
+          const effectiveAmount = amountNum * 0.995; // Amount after fee
+          const amountWei = web3.utils.toWei(effectiveAmount.toString(), "ether");
           const ratio = await contract.methods.getVPLSBackingRatio().call();
           const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
-          const estimated = Number(amount) * ratioDecimal;
+          const estimated = effectiveAmount * ratioDecimal;
           setEstimatedPLSTR(estimated.toFixed(18));
-          console.log("Estimated PLSTR fetched:", { amount, ratio, estimated });
+          setEstimatedFee(fee.toFixed(18));
+          console.log("Estimated PLSTR fetched:", { amount, fee, effectiveAmount, ratio, estimated });
         } else {
           setEstimatedPLSTR("0");
+          setEstimatedFee("0");
         }
       } catch (err) {
         console.error("Failed to fetch estimated PLSTR:", err);
@@ -75,17 +81,20 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       <h2 className="text-xl font-semibold mb-4 text-purple-600">Issue PLSTR</h2>
       <p className="text-gray-600 mb-2">Your vPLS Balance: {vPLSBalance} vPLS</p>
       <p className="text-gray-600 mb-2">Estimated PLSTR Receivable: {estimatedPLSTR} PLSTR</p>
+      <p className="text-gray-600 mb-2">Estimated Fee (0.5%): {estimatedFee} vPLS</p>
       <input
         type="number"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        placeholder="Amount of vPLS"
+        placeholder="Enter vPLS amount"
         className="w-full p-2 border rounded-lg mb-4"
+        min="0"
+        step="0.000000000000000001"
       />
       <button
         onClick={handleIssue}
-        disabled={loading || !amount}
-        className={loading || !amount ? "btn-disabled" : "btn-primary"}
+        disabled={loading || !amount || Number(amount) <= 0}
+        className={loading || !amount || Number(amount) <= 0 ? "btn-disabled" : "btn-primary"}
       >
         {loading ? "Processing..." : "Issue PLSTR"}
       </button>
