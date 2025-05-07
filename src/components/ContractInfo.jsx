@@ -7,8 +7,18 @@ const ContractInfo = ({ contract, web3 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const formatNumber = (num) => {
-    return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
+  const formatNumber = (value) => {
+    try {
+      const num = typeof value === "string" ? parseFloat(value) : Number(value);
+      if (isNaN(num)) {
+        console.error("formatNumber: Invalid number input:", value);
+        return "0";
+      }
+      return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
+    } catch (err) {
+      console.error("formatNumber error:", err, { value });
+      return "0";
+    }
   };
 
   const fetchInfo = async () => {
@@ -34,6 +44,7 @@ const ContractInfo = ({ contract, web3 }) => {
         totalIssued,
         ratioRaw: ratio,
         ratioDecimal,
+        formattedRatio: formatNumber(ratioDecimal),
       });
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
