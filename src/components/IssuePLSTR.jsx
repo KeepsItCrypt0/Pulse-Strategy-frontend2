@@ -17,7 +17,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
         console.error("formatNumber: Invalid number input:", value);
         return "0";
       }
-      // Limit to 6 decimals, remove trailing zeros
+      // Show integer if no decimals, otherwise up to 6 decimals without trailing zeros
       return num % 1 === 0 ? num.toString() : num.toFixed(6).replace(/\.?0+$/, "");
     } catch (err) {
       console.error("formatNumber error:", err, { value });
