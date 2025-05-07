@@ -13,6 +13,9 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       setError("");
       const vPLSContract = await getVPLSContract(web3);
       const balance = await vPLSContract.methods.balanceOf(account).call();
+      if (balance === undefined) {
+        throw new Error("Invalid vPLS balance response");
+      }
       setVPLSBalance(ethers.utils.formatEther(balance));
     } catch (err) {
       console.error("Failed to fetch vPLS balance:", err);
