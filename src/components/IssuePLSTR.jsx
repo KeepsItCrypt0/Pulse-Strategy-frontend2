@@ -6,13 +6,8 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   const [vPLSBalance, setVPLSBalance] = useState("0");
   const [estimatedPLSTR, setEstimatedPLSTR] = useState("0");
   const [estimatedFee, setEstimatedFee] = useState("0");
-  const [estimateError, setEstimateError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const formatNumber = (num) => {
-    return parseFloat(num.toFixed(6)).toString(); // Remove trailing zeros, max 6 decimals
-  };
 
   const fetchBalance = async () => {
     try {
@@ -37,43 +32,27 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   useEffect(() => {
     const fetchEstimate = async () => {
       try {
-        setEstimateError("");
         if (amount && Number(amount) > 0) {
-          console.log("Fetching estimate for amount:", amount);
           const amountNum = Number(amount);
           const fee = amountNum * 0.005; // 0.5% fee
           const effectiveAmount = amountNum * 0.995; // Amount after fee
-          const amountWei = web3.utils.toWei(effectiveAmount.toFixed(18), "ether");
+          const amountWei = web3.utils.toWei(effectiveAmount.toString(), "ether");
           const ratio = await contract.methods.getVPLSBackingRatio().call();
-          console.log("Backing ratio raw:", ratio);
           const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
           const estimated = effectiveAmount * ratioDecimal;
-          setEstimatedPLSTR(formatNumber(estimated));
-          setEstimatedFee(formatNumber(fee));
-          console.log("Estimate calculated:", {
-            amount: amountNum,
-            fee,
-            effectiveAmount,
-            ratioDecimal,
-            estimatedPLSTR: estimated,
-          });
+          setEstimatedPLSTR(estimated.toFixed(18));
+          setEstimatedFee(fee.toFixed(18));
+          console.log("Estimated PLSTR fetched:", { amount, fee, effectiveAmount, ratio, estimated });
         } else {
           setEstimatedPLSTR("0");
           setEstimatedFee("0");
-          console.log("No valid amount, resetting estimates");
         }
       } catch (err) {
         console.error("Failed to fetch estimated PLSTR:", err);
-        setEstimateError(`Failed to calculate estimate: ${err.message || "Unknown error"}`);
-        setEstimatedPLSTR("0");
-        setEstimatedFee("0");
       }
     };
-    if (contract && web3 && account) {
-      console.log("Running fetchEstimate with amount:", amount);
-      fetchEstimate();
-    }
-  }, [contract, web3, account, amount]);
+    if (contract && web3) fetchEstimate();
+  }, [contract, web3, amount]);
 
   const handleIssue = async () => {
     setLoading(true);
@@ -120,7 +99,6 @@ const IssuePLSTR = ({ web3, contract, account }) => {
         {loading ? "Processing..." : "Issue PLSTR"}
       </button>
       {error && <p className="text-red-400 mt-2">{error}</p>}
-      {estimateError && <p className="text-red-400 mt-2">{estimateError}</p>}
     </div>
   );
 };
