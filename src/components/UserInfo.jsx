@@ -7,21 +7,23 @@ const UserInfo = ({ contract, account }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const fetchInfo = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const balance = await contract.methods.balanceOf(account).call();
+      const redeemable = await contract.methods.getRedeemableStakedPLS(account, balance).call();
+      setPlstrBalance(ethers.utils.formatEther(balance));
+      setRedeemableVPLS(ethers.utils.formatEther(redeemable));
+    } catch (error) {
+      console.error("Failed to fetch user info:", error);
+      setError("Failed to load user data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchInfo = async () => {
-      try {
-        setLoading(true);
-        const balance = await contract.methods.balanceOf(account).call();
-        const redeemable = await contract.methods.getRedeemableStakedPLS(account, balance).call();
-        setPlstrBalance(ethers.utils.formatEther(balance));
-        setRedeemableVPLS(ethers.utils.formatEther(redeemable));
-      } catch (error) {
-        console.error("Failed to fetch user info:", error);
-        setError("Failed to load user data.");
-      } finally {
-        setLoading(false);
-      }
-    };
     if (contract && account) fetchInfo();
   }, [contract, account]);
 
@@ -31,7 +33,15 @@ const UserInfo = ({ contract, account }) => {
       {loading ? (
         <p className="text-gray-600">Loading...</p>
       ) : error ? (
-        <p className="text-red-400">{error}</p>
+        <div>
+          <p className="text-red-400">{error}</p>
+          <button
+            onClick={fetchInfo}
+            className="mt-2 text-purple-300 hover:text-pink-400"
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           <p><strong>PLSTR Balance:</strong> {plstrBalance} PLSTR</p>
