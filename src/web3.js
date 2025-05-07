@@ -1,206 +1,343 @@
 import Web3 from "web3";
 
-const contractAddress = "0x6c1dA678A1B615f673208e74AB3510c22117090e";
+export const contractAddress = "0x6c1dA678A1B615f673208e74AB3510c22117090e";
 const vPLSAddress = "0x0181e249c507d3b454dE2444444f0Bf5dBE72d09";
 
-const minimalABI = [
+const contractABI = [
   {
-    "constant": true,
-    "inputs": [],
-    "name": "getContractInfo",
-    "outputs": [
-      { "name": "contractBalance", "type": "uint256" },
-      { "name": "remainingIssuancePeriod", "type": "uint256" }
+    inputs: [{ internalType: "address", name: "spender", type: "address" }, { internalType: "uint256", name: "value", type: "uint256" }],
+    name: "approve",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  { inputs: [], stateMutability: "nonpayable", type: "constructor" },
+  { inputs: [], name: "BelowMinimumShareAmount", type: "error" },
+  { inputs: [], name: "CannotRecoverVPLS", type: "error" },
+  {
+    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+    name: "depositStakedPLS",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "spender", type: "address" },
+      { internalType: "uint256", name: "allowance", type: "uint256" },
+      { internalType: "uint256", name: "needed", type: "uint256" }
     ],
-    "type": "function"
+    name: "ERC20InsufficientAllowance",
+    type: "error"
   },
   {
-    "constant": true,
-    "inputs": [{ "name": "_owner", "type": "address" }],
-    "name": "balanceOf",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "getVPLSBackingRatio",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [
-      { "name": "_account", "type": "address" },
-      { "name": "_amount", "type": "uint256" }
+    inputs: [
+      { internalType: "address", name: "sender", type: "address" },
+      { internalType: "uint256", name: "balance", type: "uint256" },
+      { internalType: "uint256", name: "needed", type: "uint256" }
     ],
-    "name": "getRedeemableStakedPLS",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "type": "function"
+    name: "ERC20InsufficientBalance",
+    type: "error"
   },
+  { inputs: [{ internalType: "address", name: "approver", type: "address" }], name: "ERC20InvalidApprover", type: "error" },
+  { inputs: [{ internalType: "address", name: "receiver", type: "address" }], name: "ERC20InvalidReceiver", type: "error" },
+  { inputs: [{ internalType: "address", name: "sender", type: "address" }], name: "ERC20InvalidSender", type: "error" },
+  { inputs: [{ internalType: "address", name: "spender", type: "address" }], name: "ERC20InvalidSpender", type: "error" },
+  { inputs: [], name: "InsufficientBalance", type: "error" },
+  { inputs: [], name: "InsufficientContractBalance", type: "error" },
+  { inputs: [], name: "InvalidTokenDecimals", type: "error" },
+  { inputs: [], name: "IssuancePeriodActive", type: "error" },
+  { inputs: [], name: "IssuancePeriodEnded", type: "error" },
   {
-    "constant": true,
-    "inputs": [],
-    "name": "owner",
-    "outputs": [{ "name": "", "type": "address" }],
-    "type": "function"
+    inputs: [{ internalType: "uint256", name: "totalAmount", type: "uint256" }],
+    name: "issueShares",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
   },
+  { inputs: [], name: "MintingLimitExceeded", type: "error" },
   {
-    "constant": true,
-    "inputs": [],
-    "name": "totalSupply",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "type": "function"
+    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+    name: "mintShares",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
   },
+  { inputs: [], name: "NotStrategyController", type: "error" },
   {
-    "constant": false,
-    "inputs": [{ "name": "_amount", "type": "uint256" }],
-    "name": "issueShares",
-    "outputs": [],
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [{ "name": "_amount", "type": "uint256" }],
-    "name": "redeemShares",
-    "outputs": [],
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [{ "name": "_amount", "type": "uint256" }],
-    "name": "depositStakedPLS",
-    "outputs": [],
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [{ "name": "_amount", "type": "uint256" }],
-    "name": "mintShares",
-    "outputs": [],
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      { "name": "_token", "type": "address" },
-      { "name": "_recipient", "type": "address" },
-      { "name": "_amount", "type": "uint256" }
+    inputs: [
+      { internalType: "address", name: "token", type: "address" },
+      { internalType: "address", name: "recipient", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" }
     ],
-    "name": "recoverTokens",
-    "outputs": [],
-    "type": "function"
+    name: "recoverTokens",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
   },
   {
-    "constant": false,
-    "inputs": [{ "name": "_newOwner", "type": "address" }],
-    "name": "transferOwnership",
-    "outputs": [],
-    "type": "function"
+    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+    name: "redeemShares",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  { inputs: [{ internalType: "address", name: "token", type: "address" }], name: "SafeERC20FailedOperation", type: "error" },
+  {
+    inputs: [
+      { internalType: "address", name: "to", type: "address" },
+      { internalType: "uint256", name: "value", type: "uint256" }
+    ],
+    name: "transfer",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "from", type: "address" },
+      { internalType: "address", name: "to", type: "address" },
+      { internalType: "uint256", name: "value", type: "uint256" }
+    ],
+    name: "transferFrom",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  { inputs: [], name: "ZeroAddress", type: "error" },
+  { inputs: [], name: "ZeroAmount", type: "error" },
+  { inputs: [], name: "ZeroSupply", type: "error" },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "owner", type: "address" },
+      { indexed: true, internalType: "address", name: "spender", type: "address" },
+      { indexed: false, internalType: "uint256", name: "value", type: "uint256" }
+    ],
+    name: "Approval",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "newOwner", type: "address" }
+    ],
+    name: "OwnershipTransferred",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "buyer", type: "address" },
+      { indexed: false, internalType: "uint256", name: "shares", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "fee", type: "uint256" }
+    ],
+    name: "SharesIssued",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "strategyController", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "timestamp", type: "uint256" }
+    ],
+    name: "SharesMinted",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "redeemer", type: "address" },
+      { indexed: false, internalType: "uint256", name: "shares", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "stakedPLS", type: "uint256" }
+    ],
+    name: "SharesRedeemed",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "strategyController", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "timestamp", type: "uint256" }
+    ],
+    name: "StakedPLSDeposited",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "token", type: "address" },
+      { indexed: true, internalType: "address", name: "recipient", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "timestamp", type: "uint256" }
+    ],
+    name: "TokensRecovered",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "from", type: "address" },
+      { indexed: true, internalType: "address", name: "to", type: "address" },
+      { indexed: false, internalType: "uint256", name: "value", type: "uint256" }
+    ],
+    name: "Transfer",
+    type: "event"
+  },
+  {
+    inputs: [{ internalType: "address", name: "newController", type: "address" }],
+    name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "owner", type: "address" },
+      { internalType: "address", name: "spender", type: "address" }
+    ],
+    name: "allowance",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "totalAmount", type: "uint256" }],
+    name: "calculateSharesReceived",
+    outputs: [
+      { internalType: "uint256", name: "shares", type: "uint256" },
+      { internalType: "uint256", name: "fee", type: "uint256" }
+    ],
+    stateMutability: "pure",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "decimals",
+    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getContractInfo",
+    outputs: [
+      { internalType: "uint256", name: "contractBalance", type: "uint256" },
+      { internalType: "uint256", name: "remainingIssuancePeriod", type: "uint256" }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getOwnerMintInfo",
+    outputs: [{ internalType: "uint256", name: "nextMintTime", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "user", type: "address" },
+      { internalType: "uint256", name: "shareAmount", type: "uint256" }
+    ],
+    name: "getRedeemableStakedPLS",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "user", type: "address" }],
+    name: "getUserShareInfo",
+    outputs: [{ internalType: "uint256", name: "shareBalance", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getVPLSBackingRatio",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "name",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "symbol",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
   }
 ];
 
 const vPLSABI = [
   {
-    "constant": true,
-    "inputs": [{ "name": "_owner", "type": "address" }],
-    "name": "balanceOf",
-    "outputs": [{ "name": "balance", "type": "uint256" }],
-    "type": "function"
+    constant: true,
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    type: "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      { "name": "_spender", "type": "address" },
-      { "name": "_value", "type": "uint256" }
+    constant: false,
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" }
     ],
-    "name": "approve",
-    "outputs": [{ "name": "success", "type": "bool" }],
-    "type": "function"
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    type: "function"
   }
 ];
 
-const rpcUrls = [
-  "https://eth-mainnet.g.alchemy.com/v2/60nF9qKWaj8FPzlhEuGUmam6bn2tIgBN",
-  "https://rpc.ankr.com/eth/8d7581cb1a742b4ebd60ddb0ff4049a193726fef2999a3acb4dc53293cf089b1",
-  "https://mainnet.infura.io/v3/0c7b379c34424040826f02574f89b57d",
-  "https://cloudflare-eth.com"
-];
-
-const getWeb3 = async () => {
+export const getWeb3 = async () => {
   if (window.ethereum) {
     const web3 = new Web3(window.ethereum);
-    try {
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      const chainId = await web3.eth.getChainId();
-      if (chainId !== 1) {
-        try {
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: "0x1" }],
-          });
-        } catch (switchError) {
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: "wallet_addEthereumChain",
-              params: [
-                {
-                  chainId: "0x1",
-                  chainName: "Ethereum Mainnet",
-                  rpcUrls: [rpcUrls[0]],
-                  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                  blockExplorerUrls: ["https://etherscan.io"],
-                },
-              ],
-            });
-          } else {
-            console.warn("User rejected network switch:", switchError);
-          }
-        }
-      }
-      console.log("Web3 initialized with MetaMask");
-      return web3;
-    } catch (error) {
-      console.error("Wallet connection failed:", error);
-      throw new Error(`Failed to connect wallet: ${error.message}`);
-    }
+    return web3;
   } else {
-    for (let i = 0; i < rpcUrls.length; i++) {
-      try {
-        const web3 = new Web3(rpcUrls[i]);
-        await web3.eth.getBlockNumber({ timeout: 5000 });
-        console.log(`Connected to RPC: ${rpcUrls[i]}`);
-        return web3;
-      } catch (error) {
-        console.error(`RPC ${rpcUrls[i]} failed:`, error);
-      }
-    }
-    throw new Error("No valid RPC endpoints available");
+    console.error("No web3 provider detected");
+    return null;
   }
 };
 
-const getContract = async (web3) => {
-  try {
-    const contract = new web3.eth.Contract(minimalABI, contractAddress);
-    await contract.methods.getContractInfo().call();
-    console.log("PulseStrategy contract initialized");
-    return contract;
-  } catch (error) {
-    console.error("Failed to initialize PulseStrategy contract:", error);
-    throw new Error(`PulseStrategy contract failed: ${error.message}`);
-  }
+export const getContract = async (web3) => {
+  return new web3.eth.Contract(contractABI, contractAddress);
 };
 
-const getVPLSContract = async (web3) => {
-  try {
-    const contract = new web3.eth.Contract(vPLSABI, vPLSAddress);
-    await contract.methods.balanceOf(vPLSAddress).call();
-    console.log("vPLS contract initialized");
-    return contract;
-  } catch (error) {
-    console.error("Failed to initialize vPLS contract:", error);
-    throw new Error(`vPLS contract failed: ${error.message}`);
-  }
+export const getVPLSContract = async (web3) => {
+  return new web3.eth.Contract(vPLSABI, vPLSAddress);
 };
 
-export { getWeb3, getContract, getVPLSContract, contractAddress, vPLSAddress };
+export const getAccount = async (web3) => {
+  const accounts = await web3.eth.getAccounts();
+  return accounts[0] || null;
+};
