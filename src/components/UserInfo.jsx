@@ -17,7 +17,7 @@ const UserInfo = ({ contract, account }) => {
       setRedeemableVPLS(ethers.utils.formatEther(redeemable));
     } catch (error) {
       console.error("Failed to fetch user info:", error);
-      setError("Failed to load user data.");
+      setError(`Failed to load user data: ${error.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,7 @@ const UserInfo = ({ contract, account }) => {
         <div>
           <p className="text-red-400">{error}</p>
           <button
-            onClick={fetchInfo}
+            onClick={() => setTimeout(fetchInfo, 2000)}
             className="mt-2 text-purple-300 hover:text-pink-400"
           >
             Retry
