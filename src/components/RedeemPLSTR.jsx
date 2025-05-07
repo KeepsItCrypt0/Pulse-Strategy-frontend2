@@ -36,7 +36,7 @@ const RedeemPLSTR = ({ contract, account, web3 }) => {
             throw new Error("Invalid redeemable vPLS response");
           }
           setEstimatedVPLS(web3.utils.fromWei(redeemable, "ether"));
-          console.log("Estimated vPLS fetched:", { redeemable });
+          console.log("Estimated vPLS fetched:", { amount, redeemable });
         } else {
           setEstimatedVPLS("0");
         }
