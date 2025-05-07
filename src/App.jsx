@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import ConnectWallet from "./components/ConnectWallet";
 import ContractInfo from "./components/ContractInfo";
-import IssueShares from "./components/IssueShares";
-import RedeemShares from "./components/RedeemShares";
+import IssuePLSTR from "./components/IssuePLSTR";
+import RedeemPLSTR from "./components/RedeemPLSTR";
 import AdminPanel from "./components/AdminPanel";
 import UserInfo from "./components/UserInfo";
 import { getWeb3, getContract } from "./web3";
@@ -32,10 +32,10 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
-      <header className="w-full max-w-4xl bg-white shadow rounded-lg p-6 mb-6">
-        <h1 className="text-3xl font-bold text-center text-blue-600">PulseStrategy</h1>
-        <p className="text-center text-gray-600 mt-2">Interact with the PLSTR smart contract on Ethereum Mainnet</p>
+    <div className="min-h-screen gradient-bg flex flex-col items-center p-4">
+      <header className="w-full max-w-4xl bg-white bg-opacity-90 shadow-lg rounded-lg p-6 mb-6 card">
+        <h1 className="text-3xl font-bold text-center text-purple-600">PulseStrategy</h1>
+        <p className="text-center text-gray-600 mt-2">Interact with the PLSTR contract on Ethereum Mainnet</p>
         <ConnectWallet account={account} />
       </header>
       <main className="w-full max-w-4xl space-y-6">
@@ -43,16 +43,29 @@ function App() {
           <>
             <ContractInfo contract={contract} />
             <UserInfo contract={contract} account={account} />
-            <IssueShares web3={web3} contract={contract} account={account} />
-            <RedeemShares contract={contract} account={account} />
+            <IssuePLSTR web3={web3} contract={contract} account={account} />
+            <RedeemPLSTR contract={contract} account={account} />
             {isController && <AdminPanel web3={web3} contract={contract} account={account} />}
           </>
         ) : (
-          <p className="text-center text-gray-600">Please connect your wallet to interact with the contract.</p>
+          <p className="text-center text-white">Please connect your wallet to interact with the contract.</p>
         )}
       </main>
-      <footer className="mt-12 text-center text-gray-500">
-        <p>Built for PulseStrategy | Deployed on Ethereum Mainnet</p>
+      <footer className="mt-12 text-center text-white">
+        <p className="mb-4">
+          Disclaimer: This platform involves risks, including smart contract vulnerabilities and market volatility. Users are responsible for their own losses. Not financial advice.
+        </p>
+        <a
+          href="https://x.com/pulsestrategy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="footer-link flex items-center justify-center"
+        >
+          <svg className="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+          Follow @pulsestrategy
+        </a>
       </footer>
     </div>
   );
