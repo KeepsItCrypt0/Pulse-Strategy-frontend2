@@ -9,13 +9,13 @@ const ContractInfo = ({ contract, web3 }) => {
 
   const formatNumber = (value) => {
     try {
-      // Directly convert to string, no .toFixed to avoid v.toFixed error
+      // Handle string or number input
       const num = typeof value === "string" ? parseFloat(value) : Number(value);
       if (isNaN(num)) {
         console.error("formatNumber: Invalid number input:", value);
         return "0";
       }
-      // Limit to 4 decimals without trailing zeros
+      // Show integer if no decimals, otherwise up to 4 decimals without trailing zeros
       return num % 1 === 0 ? num.toString() : num.toFixed(4).replace(/\.?0+$/, "");
     } catch (err) {
       console.error("formatNumber error:", err, { value });
@@ -35,9 +35,9 @@ const ContractInfo = ({ contract, web3 }) => {
       const totalIssued = await contract.methods.totalSupply().call();
       const ratioDecimal = web3.utils.fromWei(ratio, "ether");
       setInfo({
-        balance: web3.utils.fromWei(result.contractBalance, "ether"),
+        balance: formatNumber(web3.utils.fromWei(result.contractBalance, "ether")),
         issuancePeriod: result.remainingIssuancePeriod,
-        totalIssued: web3.utils.fromWei(totalIssued, "ether"),
+        totalIssued: formatNumber(web3.utils.fromWei(totalIssued, "ether")),
       });
       setBackingRatio(formatNumber(ratioDecimal));
       console.log("Contract info fetched:", {
