@@ -21,7 +21,7 @@ const ContractInfo = ({ contract }) => {
       setBackingRatio(ethers.utils.formatEther(ratio));
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
-      setError("Failed to load contract data. Please try again.");
+      setError(`Failed to load contract data: ${error.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ const ContractInfo = ({ contract }) => {
         <div>
           <p className="text-red-400">{error}</p>
           <button
-            onClick={fetchInfo}
+            onClick={() => setTimeout(fetchInfo, 2000)} // Delay to avoid rate limits
             className="mt-2 text-purple-300 hover:text-pink-400"
           >
             Retry
