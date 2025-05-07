@@ -12,13 +12,12 @@ const IssuePLSTR = ({ web3, contract, account }) => {
 
   const formatNumber = (value) => {
     try {
-      // Convert input to number, handling strings or numbers
       const num = typeof value === "string" ? parseFloat(value) : Number(value);
       if (isNaN(num)) {
         console.error("formatNumber: Invalid number input:", value);
         return "0";
       }
-      return parseFloat(num.toFixed(6)).toString(); // Remove trailing zeros, max 6 decimals
+      return parseFloat(num.toFixed(6)).toString(); // Max 6 decimals, remove trailing zeros
     } catch (err) {
       console.error("formatNumber error:", err, { value });
       return "0";
@@ -33,7 +32,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       if (balance === undefined || balance === null) {
         throw new Error("Invalid vPLS balance response");
       }
-      setVPLSBalance(web3.utils.fromWei(balance, "ether"));
+      setVPLSBalance(formatNumber(web3.utils.fromWei(balance, "ether")));
       console.log("vPLS balance fetched:", { balance });
     } catch (err) {
       console.error("Failed to fetch vPLS balance:", err);
@@ -46,17 +45,14 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   }, [web3, account]);
 
   useEffect(() => {
-    const fetchEstimate = async () => {
+    const calculateEstimate = () => {
       try {
         setEstimateError("");
         if (amount && Number(amount) > 0) {
-          console.log("Fetching estimate for amount:", amount);
+          console.log("Calculating estimate for amount:", amount);
           const amountNum = Number(amount);
-          const amountWei = web3.utils.toWei(amountNum.toString(), "ether");
-          const result = await contract.methods.calculateSharesReceived(amountWei).call();
-          console.log("calculateSharesReceived result:", result);
-          const shares = web3.utils.fromWei(result.shares, "ether");
-          const fee = web3.utils.fromWei(result.fee, "ether");
+          const fee = amountNum * 0.005; // 0.5% fee
+          const shares = amountNum - fee; // 1:1 ratio minus fee
           setEstimatedPLSTR(formatNumber(shares));
           setEstimatedFee(formatNumber(fee));
           console.log("Estimate calculated:", {
@@ -72,17 +68,14 @@ const IssuePLSTR = ({ web3, contract, account }) => {
           console.log("No valid amount, resetting estimates");
         }
       } catch (err) {
-        console.error("Failed to fetch estimated PLSTR:", err);
+        console.error("Failed to calculate estimate:", err);
         setEstimateError(`Failed to calculate estimate: ${err.message || "Unknown error"}`);
         setEstimatedPLSTR("0");
         setEstimatedFee("0");
       }
     };
-    if (contract && web3 && account) {
-      console.log("Running fetchEstimate with amount:", amount);
-      fetchEstimate();
-    }
-  }, [contract, web3, account, amount]);
+    calculateEstimate();
+  }, [amount]);
 
   const handleIssue = async () => {
     setLoading(true);
