@@ -9,7 +9,7 @@ const AdminPanel = ({ web3, contract, account }) => {
   const [recoverAmount, setRecoverAmount] = useState("");
   const [recoverRecipient, setRecoverRecipient] = useState("");
   const [newController, setNewController] = useState("");
-  const [nextMintTime, setNextMintTime] = useState(0);
+  const [nextMintTime, setNextMintTime] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -20,7 +20,8 @@ const AdminPanel = ({ web3, contract, account }) => {
         setNextMintTime(Number(nextMint));
       } catch (err) {
         console.error("Failed to fetch mint info:", err);
-        setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
+        setError(`Failed to load mint info: ${err.message || "Method may not exist"}`);
+        setNextMintTime(0); // Fallback to avoid breaking UI
       }
     };
     if (contract) fetchMintInfo();
@@ -117,7 +118,9 @@ const AdminPanel = ({ web3, contract, account }) => {
         </div>
         <div>
           <h3 className="text-lg font-medium mb-2 text-purple-600">Mint PLSTR</h3>
-          <p className="text-gray-600">Next Mint Available: {nextMintTime ? new Date(nextMintTime * 1000).toLocaleString() : "Loading..."}</p>
+          <p className="text-gray-600">
+            Next Mint Available: {nextMintTime === null ? "Loading..." : nextMintTime === 0 ? "Not available" : new Date(nextMintTime * 1000).toLocaleString()}
+          </p>
           <input
             type="number"
             value={mintAmount}
