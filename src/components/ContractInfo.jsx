@@ -9,12 +9,14 @@ const ContractInfo = ({ contract, web3 }) => {
 
   const formatNumber = (value) => {
     try {
+      // Directly convert to string, no .toFixed to avoid v.toFixed error
       const num = typeof value === "string" ? parseFloat(value) : Number(value);
       if (isNaN(num)) {
         console.error("formatNumber: Invalid number input:", value);
         return "0";
       }
-      return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
+      // Limit to 4 decimals without trailing zeros
+      return num % 1 === 0 ? num.toString() : num.toFixed(4).replace(/\.?0+$/, "");
     } catch (err) {
       console.error("formatNumber error:", err, { value });
       return "0";
