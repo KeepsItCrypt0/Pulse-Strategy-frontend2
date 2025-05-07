@@ -8,17 +8,19 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const fetchBalance = async () => {
+    try {
+      setError("");
+      const vPLSContract = await getVPLSContract(web3);
+      const balance = await vPLSContract.methods.balanceOf(account).call();
+      setVPLSBalance(ethers.utils.formatEther(balance));
+    } catch (err) {
+      console.error("Failed to fetch vPLS balance:", err);
+      setError(`Failed to load vPLS balance: ${err.message || "Unknown error"}`);
+    }
+  };
+
   useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const vPLSContract = await getVPLSContract(web3);
-        const balance = await vPLSContract.methods.balanceOf(account).call();
-        setVPLSBalance(ethers.utils.formatEther(balance));
-      } catch (err) {
-        console.error("Failed to fetch vPLS balance:", err);
-        setError("Failed to load vPLS balance.");
-      }
-    };
     if (web3 && account) fetchBalance();
   }, [web3, account]);
 
@@ -34,8 +36,9 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       await contract.methods.issueShares(amountWei).send({ from: account });
       alert("PLSTR issued successfully!");
       setAmount("");
+      fetchBalance();
     } catch (err) {
-      setError("Error issuing PLSTR: " + err.message);
+      setError(`Error issuing PLSTR: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
