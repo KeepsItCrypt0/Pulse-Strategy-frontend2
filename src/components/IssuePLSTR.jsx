@@ -4,6 +4,7 @@ import { getVPLSContract } from "../web3";
 const IssuePLSTR = ({ web3, contract, account }) => {
   const [amount, setAmount] = useState("");
   const [vPLSBalance, setVPLSBalance] = useState("0");
+  const [estimatedPLSTR, setEstimatedPLSTR] = useState("0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,6 +27,26 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   useEffect(() => {
     if (web3 && account) fetchBalance();
   }, [web3, account]);
+
+  useEffect(() => {
+    const fetchEstimate = async () => {
+      try {
+        if (amount && Number(amount) > 0) {
+          const amountWei = web3.utils.toWei(amount, "ether");
+          const ratio = await contract.methods.getVPLSBackingRatio().call();
+          const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
+          const estimated = Number(amount) * ratioDecimal;
+          setEstimatedPLSTR(estimated.toFixed(18));
+          console.log("Estimated PLSTR fetched:", { amount, ratio, estimated });
+        } else {
+          setEstimatedPLSTR("0");
+        }
+      } catch (err) {
+        console.error("Failed to fetch estimated PLSTR:", err);
+      }
+    };
+    if (contract && web3) fetchEstimate();
+  }, [contract, web3, amount]);
 
   const handleIssue = async () => {
     setLoading(true);
@@ -53,6 +74,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
       <h2 className="text-xl font-semibold mb-4 text-purple-600">Issue PLSTR</h2>
       <p className="text-gray-600 mb-2">Your vPLS Balance: {vPLSBalance} vPLS</p>
+      <p className="text-gray-600 mb-2">Estimated PLSTR Receivable: {estimatedPLSTR} PLSTR</p>
       <input
         type="number"
         value={amount}
