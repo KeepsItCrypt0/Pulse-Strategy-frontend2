@@ -300,7 +300,6 @@ const contractABI = [
 ];
 
 const vPLSABI = [
-  // Minimal ABI for vPLS
   {
     constant: true,
     inputs: [{ name: "account", type: "address" }],
