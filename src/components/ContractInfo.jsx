@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 const ContractInfo = ({ contract, web3 }) => {
-  const [info, setInfo] = useState({ balance: "0", issuancePeriod: "0" });
+  const [info, setInfo] = useState({ balance: "0", issuancePeriod: "0", totalIssued: "0" });
   const [backingRatio, setBackingRatio] = useState("0");
   const [countdown, setCountdown] = useState("");
   const [loading, setLoading] = useState(true);
@@ -16,12 +16,14 @@ const ContractInfo = ({ contract, web3 }) => {
         throw new Error("Invalid contract info response");
       }
       const ratio = await contract.methods.getVPLSBackingRatio().call();
+      const totalIssued = await contract.methods.totalSupply().call();
       setInfo({
         balance: web3.utils.fromWei(result.contractBalance, "ether"),
         issuancePeriod: result.remainingIssuancePeriod,
+        totalIssued: web3.utils.fromWei(totalIssued, "ether"),
       });
       setBackingRatio(web3.utils.fromWei(ratio, "ether"));
-      console.log("Contract info fetched:", { balance: result.contractBalance, period: result.remainingIssuancePeriod, ratio });
+      console.log("Contract info fetched:", { balance: result.contractBalance, period: result.remainingIssuancePeriod, totalIssued, ratio });
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
       setError(`Failed to load contract data: ${error.message || "Unknown error"}`);
@@ -62,7 +64,7 @@ const ContractInfo = ({ contract, web3 }) => {
           <p className="text-red-400">{error}</p>
           <button
             onClick={() => setTimeout(fetchInfo, 2000)}
-            className="mt-2 text-purple-300 hover:text-pink-400"
+            className="mt-2 text-purple-300 hover:text-purple-400"
           >
             Retry
           </button>
@@ -70,6 +72,7 @@ const ContractInfo = ({ contract, web3 }) => {
       ) : (
         <>
           <p><strong>Contract Balance:</strong> {info.balance} vPLS</p>
+          <p><strong>Total PLSTR Issued:</strong> {info.totalIssued} PLSTR</p>
           <p><strong>Issuance Period Countdown:</strong> {countdown}</p>
           <p><strong>VPLS Backing Ratio:</strong> {backingRatio}</p>
         </>
