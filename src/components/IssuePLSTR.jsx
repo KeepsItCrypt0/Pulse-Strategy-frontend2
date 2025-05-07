@@ -1,95 +1,123 @@
 import { useState, useEffect } from "react";
+import { getVPLSContract } from "../web3";
 
-const ContractInfo = ({ contract, web3 }) => {
-  const [info, setInfo] = useState({ balance: "0", issuancePeriod: "0", totalIssued: "0" });
-  const [backingRatio, setBackingRatio] = useState("0");
-  const [countdown, setCountdown] = useState("");
-  const [loading, setLoading] = useState(true);
+const IssuePLSTR = ({ web3, contract, account }) => {
+  const [amount, setAmount] = useState("");
+  const [vPLSBalance, setVPLSBalance] = useState("0");
+  const [estimatedPLSTR, setEstimatedPLSTR] = useState("0");
+  const [estimatedFee, setEstimatedFee] = useState("0");
+  const [estimateError, setEstimateError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const formatNumber = (num) => {
-    return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
+    return parseFloat(num.toFixed(6)).toString(); // Remove trailing zeros, max 6 decimals
   };
 
-  const fetchInfo = async () => {
+  const fetchBalance = async () => {
     try {
-      setLoading(true);
       setError("");
-      const result = await contract.methods.getContractInfo().call();
-      if (!result || !result.contractBalance || !result.remainingIssuancePeriod) {
-        throw new Error("Invalid contract info response");
+      const vPLSContract = await getVPLSContract(web3);
+      const balance = await vPLSContract.methods.balanceOf(account).call();
+      if (balance === undefined || balance === null) {
+        throw new Error("Invalid vPLS balance response");
       }
-      const ratio = await contract.methods.getVPLSBackingRatio().call();
-      const totalIssued = await contract.methods.totalSupply().call();
-      const ratioDecimal = web3.utils.fromWei(ratio, "ether");
-      setInfo({
-        balance: web3.utils.fromWei(result.contractBalance, "ether"),
-        issuancePeriod: result.remainingIssuancePeriod,
-        totalIssued: web3.utils.fromWei(totalIssued, "ether"),
-      });
-      setBackingRatio(formatNumber(ratioDecimal));
-      console.log("Contract info fetched:", {
-        balance: result.contractBalance,
-        period: result.remainingIssuancePeriod,
-        totalIssued,
-        ratioRaw: ratio,
-        ratioDecimal,
-      });
-    } catch (error) {
-      console.error("Failed to fetch contract info:", error);
-      setError(`Failed to load contract data: ${error.message || "Unknown error"}`);
+      setVPLSBalance(web3.utils.fromWei(balance, "ether"));
+      console.log("vPLS balance fetched:", { balance });
+    } catch (err) {
+      console.error("Failed to fetch vPLS balance:", err);
+      setError(`Failed to load vPLS balance: ${err.message || "Unknown error"}`);
+    }
+  };
+
+  useEffect(() => {
+    if (web3 && account) fetchBalance();
+  }, [web3, account]);
+
+  useEffect(() => {
+    const fetchEstimate = async () => {
+      try {
+        setEstimateError("");
+        if (amount && Number(amount) > 0) {
+          console.log("Fetching estimate for amount:", amount);
+          const amountNum = Number(amount);
+          const amountWei = web3.utils.toWei(amountNum.toString(), "ether");
+          const result = await contract.methods.calculateSharesReceived(amountWei).call();
+          const shares = web3.utils.fromWei(result.shares, "ether");
+          const fee = web3.utils.fromWei(result.fee, "ether");
+          setEstimatedPLSTR(formatNumber(shares));
+          setEstimatedFee(formatNumber(fee));
+          console.log("Estimate calculated:", {
+            amount: amountNum,
+            shares,
+            fee,
+          });
+        } else {
+          setEstimatedPLSTR("0");
+          setEstimatedFee("0");
+          console.log("No valid amount, resetting estimates");
+        }
+      } catch (err) {
+        console.error("Failed to fetch estimated PLSTR:", err);
+        setEstimateError(`Failed to calculate estimate: ${err.message || "Unknown error"}`);
+        setEstimatedPLSTR("0");
+        setEstimatedFee("0");
+      }
+    };
+    if (contract && web3 && account) {
+      console.log("Running fetchEstimate with amount:", amount);
+      fetchEstimate();
+    }
+  }, [contract, web3, account, amount]);
+
+  const handleIssue = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const vPLSContract = await getVPLSContract(web3);
+      const amountWei = web3.utils.toWei(amount, "ether");
+      await vPLSContract.methods
+        .approve(contract._address, amountWei)
+        .send({ from: account });
+      await contract.methods.issueShares(amountWei).send({ from: account });
+      alert("PLSTR issued successfully!");
+      setAmount("");
+      fetchBalance();
+      console.log("PLSTR issued:", { amountWei });
+    } catch (err) {
+      setError(`Error issuing PLSTR: ${err.message || "Unknown error"}`);
+      console.error("Issue PLSTR error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (contract && web3) fetchInfo();
-  }, [contract, web3]);
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const seconds = Number(info.issuancePeriod);
-      if (seconds <= 0) {
-        setCountdown("Issuance period ended");
-        return;
-      }
-      const days = Math.floor(seconds / 86400);
-      const hours = Math.floor((seconds % 86400) / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
-      setCountdown(`${days}d ${hours}h ${minutes}m ${secs}s`);
-    };
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [info.issuancePeriod]);
-
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
-      <h2 className="text-xl font-semibold mb-4 text-purple-600">Contract Information</h2>
-      {loading ? (
-        <p className="text-gray-600">Loading...</p>
-      ) : error ? (
-        <div>
-          <p className="text-red-400">{error}</p>
-          <button
-            onClick={() => setTimeout(fetchInfo, 2000)}
-            className="mt-2 text-purple-300 hover:text-purple-400"
-          >
-            Retry
-          </button>
-        </div>
-      ) : (
-        <>
-          <p><strong>Contract Balance:</strong> {info.balance} vPLS</p>
-          <p><strong>Total PLSTR Issued:</strong> {info.totalIssued} PLSTR</p>
-          <p><strong>Issuance Period Countdown:</strong> {countdown}</p>
-          <p><strong>VPLS Backing Ratio:</strong> {backingRatio}</p>
-        </>
-      )}
+      <h2 className="text-xl font-semibold mb-4 text-purple-600">Issue PLSTR</h2>
+      <p className="text-gray-600 mb-2">Your vPLS Balance: {vPLSBalance} vPLS</p>
+      <p className="text-gray-600 mb-2">Estimated PLSTR Receivable: {estimatedPLSTR} PLSTR</p>
+      <p className="text-gray-600 mb-2">Estimated Fee (0.5%): {estimatedFee} vPLS</p>
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Enter vPLS amount"
+        className="w-full p-2 border rounded-lg mb-4"
+        min="0"
+        step="0.000000000000000001"
+      />
+      <button
+        onClick={handleIssue}
+        disabled={loading || !amount || Number(amount) <= 0}
+        className="btn-primary"
+      >
+        {loading ? "Processing..." : "Issue PLSTR"}
+      </button>
+      {error && <p className="text-red-400 mt-2">{error}</p>}
+      {estimateError && <p className="text-red-400 mt-2">{estimateError}</p>}
     </div>
   );
 };
 
-export default ContractInfo;
+export default IssuePLSTR;
