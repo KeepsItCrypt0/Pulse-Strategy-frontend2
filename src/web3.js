@@ -46,6 +46,13 @@ const minimalABI = [
     "type": "function"
   },
   {
+    "constant": true,
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "type": "function"
+  },
+  {
     "constant": false,
     "inputs": [{ "name": "_amount", "type": "uint256" }],
     "name": "issueShares",
