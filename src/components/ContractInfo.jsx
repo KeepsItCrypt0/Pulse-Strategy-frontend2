@@ -7,23 +7,42 @@ const ContractInfo = ({ contract, web3 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const formatNumber = (value) => {
+    try {
+      const num = Number(value);
+      if (isNaN(num)) throw new Error("Invalid number");
+      return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
+    } catch (err) {
+      console.error("Format number error:", { value, error: err.message });
+      return "0";
+    }
+  };
+
   const fetchInfo = async () => {
     try {
       setLoading(true);
       setError("");
+      if (!contract || !web3) throw new Error("Contract or Web3 not initialized");
       const result = await contract.methods.getContractInfo().call();
       if (!result || !result.contractBalance || !result.remainingIssuancePeriod) {
         throw new Error("Invalid contract info response");
       }
       const ratio = await contract.methods.getVPLSBackingRatio().call();
       const totalIssued = await contract.methods.totalSupply().call();
+      const ratioDecimal = web3.utils.fromWei(ratio || "0", "ether");
       setInfo({
-        balance: web3.utils.fromWei(result.contractBalance, "ether"),
-        issuancePeriod: result.remainingIssuancePeriod,
-        totalIssued: web3.utils.fromWei(totalIssued, "ether"),
+        balance: formatNumber(web3.utils.fromWei(result.contractBalance || "0", "ether")),
+        issuancePeriod: result.remainingIssuancePeriod || "0",
+        totalIssued: formatNumber(web3.utils.fromWei(totalIssued || "0", "ether")),
       });
-      setBackingRatio(web3.utils.fromWei(ratio, "ether"));
-      console.log("Contract info fetched:", { balance: result.contractBalance, period: result.remainingIssuancePeriod, totalIssued, ratio });
+      setBackingRatio(formatNumber(ratioDecimal));
+      console.log("Contract info fetched:", {
+        balance: result.contractBalance,
+        period: result.remainingIssuancePeriod,
+        totalIssued,
+        ratioRaw: ratio,
+        ratioDecimal,
+      });
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
       setError(`Failed to load contract data: ${error.message || "Unknown error"}`);
