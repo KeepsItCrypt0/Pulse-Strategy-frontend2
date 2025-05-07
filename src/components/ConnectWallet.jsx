@@ -1,43 +1,16 @@
 import { useState, useEffect } from "react";
 
 const ConnectWallet = ({ account, web3 }) => {
-  const [error, setError] = useState("");
   const [connecting, setConnecting] = useState(false);
-  const [network, setNetwork] = useState("");
-  const [rpcStatus, setRpcStatus] = useState("");
 
-  useEffect(() => {
-    const checkNetwork = async () => {
-      if (web3) {
-        try {
-          const chainId = await web3.eth.getChainId();
-          setNetwork(chainId === 1 ? "Ethereum Mainnet" : `Unknown Network (ID: ${chainId})`);
-          const blockNumber = await web3.eth.getBlockNumber();
-          setRpcStatus(`RPC Active (Block: ${blockNumber})`);
-          console.log("Network check successful:", { chainId, blockNumber });
-        } catch (err) {
-          setNetwork("Network check failed");
-          setRpcStatus("RPC check failed");
-          console.error("Network check failed:", err);
-        }
-      }
-    };
-    checkNetwork();
-  }, [web3]);
-
-  const connect = async () => {
+  const connectWallet = async () => {
+    if (!web3) return;
     setConnecting(true);
-    setError("");
     try {
-      if (!window.ethereum) {
-        throw new Error("MetaMask or another Web3 wallet is not installed.");
-      }
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      console.log("Wallet connected via MetaMask");
+      await web3.eth.requestAccounts();
       window.location.reload();
-    } catch (err) {
-      setError(err.message);
-      console.error("Wallet connection error:", err);
+    } catch (error) {
+      console.error("Wallet connection failed:", error);
     } finally {
       setConnecting(false);
     }
@@ -45,33 +18,31 @@ const ConnectWallet = ({ account, web3 }) => {
 
   return (
     <div className="mt-4 text-center">
+      <h2 className="text-lg font-semibold text-gray-800">Wallet Connection</h2>
       {account ? (
         <>
-          <p className="text-green-400">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
-          <p className="text-gray-600">Network: {network}</p>
-          <p className="text-gray-600">RPC: {rpcStatus}</p>
+          <p className="text-gray-600">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
+          <p className="text-gray-600">
+            PLSTR Contract:{" "}
+            <a
+              href="https://etherscan.io/address/0x6c1dA678A1B615f673208e74AB3510c22117090e"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-300 hover:text-red-300 truncate inline-block max-w-[200px]"
+              title="0x6c1dA678A1B615f673208e74AB3510c22117090e"
+            >
+              {account.slice(0, 6)}...{account.slice(-4)}
+            </a>
+          </p>
         </>
       ) : (
-        <>
-          <button
-            onClick={connect}
-            disabled={connecting}
-            className={connecting ? "btn-disabled" : "btn-primary"}
-          >
-            {connecting ? "Connecting..." : "Connect Wallet"}
-          </button>
-          {error && (
-            <div className="mt-2">
-              <p className="text-red-400">{error}</p>
-              <button
-                onClick={connect}
-                className="mt-2 text-purple-300 hover:text-pink-400"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-        </>
+        <button
+          onClick={connectWallet}
+          disabled={connecting || !web3}
+          className="btn-primary mt-2"
+        >
+          {connecting ? "Connecting..." : "Connect Wallet"}
+        </button>
       )}
     </div>
   );
