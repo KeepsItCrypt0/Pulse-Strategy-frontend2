@@ -14,12 +14,23 @@ const AdminPanel = ({ web3, contract, account }) => {
 
   const fetchNextMintTime = async () => {
     try {
+      setError("");
+      if (!contract || !contract.methods.getOwnerMintInfo) {
+        throw new Error("getOwnerMintInfo method not available in contract");
+      }
       const result = await contract.methods.getOwnerMintInfo().call();
-      setNextMintTime(result.nextMintTime);
+      setNextMintTime(result.nextMintTime || "0");
       console.log("Next mint time:", result.nextMintTime);
     } catch (err) {
       console.error("Failed to fetch next mint time:", err);
-      setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
+      // Fallback to remainingIssuancePeriod
+      try {
+        const info = await contract.methods.getContractInfo().call();
+        setNextMintTime(info.remainingIssuancePeriod || "0");
+        console.log("Fallback to remainingIssuancePeriod:", info.remainingIssuancePeriod);
+      } catch (fallbackErr) {
+        setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
+      }
     }
   };
 
@@ -53,7 +64,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       await contract.methods.mintShares(amountWei).send({ from: account });
       alert("PLSTR minted successfully!");
       setMintAmount("");
-      fetchNextMintTime(); // Refresh nextMintTime after minting
+      fetchNextMintTime(); // Refresh after minting
       console.log("PLSTR minted:", { amountWei });
     } catch (err) {
       setError(`Error minting PLSTR: ${err.message || "Unknown error"}`);
