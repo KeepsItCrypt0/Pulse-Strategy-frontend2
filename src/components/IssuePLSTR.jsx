@@ -10,6 +10,10 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const formatNumber = (num) => {
+    return parseFloat(num.toFixed(6)).toString(); // Remove trailing zeros, max 6 decimals
+  };
+
   const fetchBalance = async () => {
     try {
       setError("");
@@ -44,8 +48,8 @@ const IssuePLSTR = ({ web3, contract, account }) => {
           console.log("Backing ratio raw:", ratio);
           const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
           const estimated = effectiveAmount * ratioDecimal;
-          setEstimatedPLSTR(estimated.toFixed(18));
-          setEstimatedFee(fee.toFixed(18));
+          setEstimatedPLSTR(formatNumber(estimated));
+          setEstimatedFee(formatNumber(fee));
           console.log("Estimate calculated:", {
             amount: amountNum,
             fee,
