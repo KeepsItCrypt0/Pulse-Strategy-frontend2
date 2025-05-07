@@ -12,11 +12,14 @@ const ContractInfo = ({ contract }) => {
     try {
       setLoading(true);
       setError("");
-      const { contractBalance, remainingIssuancePeriod } = await contract.methods.getContractInfo().call();
+      const result = await contract.methods.getContractInfo().call();
+      if (!result || !result.contractBalance || !result.remainingIssuancePeriod) {
+        throw new Error("Invalid contract info response");
+      }
       const ratio = await contract.methods.getVPLSBackingRatio().call();
       setInfo({
-        balance: ethers.utils.formatEther(contractBalance),
-        issuancePeriod: remainingIssuancePeriod,
+        balance: ethers.utils.formatEther(result.contractBalance),
+        issuancePeriod: result.remainingIssuancePeriod,
       });
       setBackingRatio(ethers.utils.formatEther(ratio));
     } catch (error) {
@@ -58,7 +61,7 @@ const ContractInfo = ({ contract }) => {
         <div>
           <p className="text-red-400">{error}</p>
           <button
-            onClick={() => setTimeout(fetchInfo, 2000)} // Delay to avoid rate limits
+            onClick={() => setTimeout(fetchInfo, 2000)}
             className="mt-2 text-purple-300 hover:text-pink-400"
           >
             Retry
