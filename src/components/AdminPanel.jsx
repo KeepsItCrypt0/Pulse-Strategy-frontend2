@@ -20,6 +20,7 @@ const AdminPanel = ({ web3, contract, account }) => {
         setNextMintTime(Number(nextMint));
       } catch (err) {
         console.error("Failed to fetch mint info:", err);
+        setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
       }
     };
     if (contract) fetchMintInfo();
@@ -38,7 +39,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       alert("Deposit successful!");
       setDepositAmount("");
     } catch (err) {
-      setError("Error depositing: " + err.message);
+      setError(`Error depositing: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       alert("PLSTR minted successfully!");
       setMintAmount("");
     } catch (err) {
-      setError("Error minting PLSTR: " + err.message);
+      setError(`Error minting PLSTR: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       setRecoverAmount("");
       setRecoverRecipient("");
     } catch (err) {
-      setError("Error recovering tokens: " + err.message);
+      setError(`Error recovering tokens: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       alert("Ownership transferred successfully!");
       setNewController("");
     } catch (err) {
-      setError("Error transferring ownership: " + err.message);
+      setError(`Error transferring ownership: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -95,6 +96,7 @@ const AdminPanel = ({ web3, contract, account }) => {
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
       <h2 className="text-xl font-semibold mb-4 text-purple-600">Admin Panel</h2>
+      {error && <p className="text-red-400 mb-4">{error}</p>}
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-medium mb-2 text-purple-600">Deposit vPLS</h3>
@@ -115,7 +117,7 @@ const AdminPanel = ({ web3, contract, account }) => {
         </div>
         <div>
           <h3 className="text-lg font-medium mb-2 text-purple-600">Mint PLSTR</h3>
-          <p className="text-gray-600">Next Mint Available: {new Date(nextMintTime * 1000).toLocaleString()}</p>
+          <p className="text-gray-600">Next Mint Available: {nextMintTime ? new Date(nextMintTime * 1000).toLocaleString() : "Loading..."}</p>
           <input
             type="number"
             value={mintAmount}
@@ -180,7 +182,6 @@ const AdminPanel = ({ web3, contract, account }) => {
           </button>
         </div>
       </div>
-      {error && <p className="text-red-400 mt-4">{error}</p>}
     </div>
   );
 };
