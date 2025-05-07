@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
 
-const ContractInfo = ({ contract }) => {
+const ContractInfo = ({ contract, web3 }) => {
   const [info, setInfo] = useState({ balance: "0", issuancePeriod: "0" });
   const [backingRatio, setBackingRatio] = useState("0");
   const [countdown, setCountdown] = useState("");
@@ -18,10 +17,11 @@ const ContractInfo = ({ contract }) => {
       }
       const ratio = await contract.methods.getVPLSBackingRatio().call();
       setInfo({
-        balance: ethers.utils.formatEther(result.contractBalance),
+        balance: web3.utils.fromWei(result.contractBalance, "ether"),
         issuancePeriod: result.remainingIssuancePeriod,
       });
-      setBackingRatio(ethers.utils.formatEther(ratio));
+      setBackingRatio(web3.utils.fromWei(ratio, "ether"));
+      console.log("Contract info fetched:", { balance: result.contractBalance, period: result.remainingIssuancePeriod, ratio });
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
       setError(`Failed to load contract data: ${error.message || "Unknown error"}`);
@@ -31,8 +31,8 @@ const ContractInfo = ({ contract }) => {
   };
 
   useEffect(() => {
-    if (contract) fetchInfo();
-  }, [contract]);
+    if (contract && web3) fetchInfo();
+  }, [contract, web3]);
 
   useEffect(() => {
     const updateCountdown = () => {
