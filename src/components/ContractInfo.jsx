@@ -8,24 +8,26 @@ const ContractInfo = ({ contract }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const fetchInfo = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const { contractBalance, remainingIssuancePeriod } = await contract.methods.getContractInfo().call();
+      const ratio = await contract.methods.getVPLSBackingRatio().call();
+      setInfo({
+        balance: ethers.utils.formatEther(contractBalance),
+        issuancePeriod: remainingIssuancePeriod,
+      });
+      setBackingRatio(ethers.utils.formatEther(ratio));
+    } catch (error) {
+      console.error("Failed to fetch contract info:", error);
+      setError("Failed to load contract data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchInfo = async () => {
-      try {
-        setLoading(true);
-        const { contractBalance, remainingIssuancePeriod } = await contract.methods.getContractInfo().call();
-        const ratio = await contract.methods.getVPLSBackingRatio().call();
-        setInfo({
-          balance: ethers.utils.formatEther(contractBalance),
-          issuancePeriod: remainingIssuancePeriod,
-        });
-        setBackingRatio(ethers.utils.formatEther(ratio));
-      } catch (error) {
-        console.error("Failed to fetch contract info:", error);
-        setError("Failed to load contract data. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
     if (contract) fetchInfo();
   }, [contract]);
 
@@ -53,7 +55,15 @@ const ContractInfo = ({ contract }) => {
       {loading ? (
         <p className="text-gray-600">Loading...</p>
       ) : error ? (
-        <p className="text-red-400">{error}</p>
+        <div>
+          <p className="text-red-400">{error}</p>
+          <button
+            onClick={fetchInfo}
+            className="mt-2 text-purple-300 hover:text-pink-400"
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           <p><strong>Contract Balance:</strong> {info.balance} vPLS</p>
