@@ -90,13 +90,6 @@ const minimalABI = [
     "name": "transferOwnership",
     "outputs": [],
     "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "getOwnerMintInfo",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "type": "function"
   }
 ];
 
@@ -158,6 +151,7 @@ const getWeb3 = async () => {
           }
         }
       }
+      console.log("Web3 initialized with MetaMask");
       return web3;
     } catch (error) {
       console.error("Wallet connection failed:", error);
@@ -182,6 +176,7 @@ const getContract = async (web3) => {
   try {
     const contract = new web3.eth.Contract(minimalABI, contractAddress);
     await contract.methods.getContractInfo().call();
+    console.log("PulseStrategy contract initialized");
     return contract;
   } catch (error) {
     console.error("Failed to initialize PulseStrategy contract:", error);
@@ -193,6 +188,7 @@ const getVPLSContract = async (web3) => {
   try {
     const contract = new web3.eth.Contract(vPLSABI, vPLSAddress);
     await contract.methods.balanceOf(vPLSAddress).call();
+    console.log("vPLS contract initialized");
     return contract;
   } catch (error) {
     console.error("Failed to initialize vPLS contract:", error);
