@@ -30,6 +30,7 @@ function App() {
           network: chainId === 1 ? "Ethereum Mainnet" : `Chain ID: ${chainId}`,
           contract: contractAddress,
         });
+        console.log("App initialized:", { account: accounts[0], chainId, owner });
       } catch (error) {
         console.error("Web3 initialization failed:", error);
         setDebugInfo((prev) => ({ ...prev, contract: `Failed: ${error.message}` }));
@@ -48,10 +49,10 @@ function App() {
       <main className="w-full max-w-4xl space-y-6">
         {account && contract ? (
           <>
-            <ContractInfo contract={contract} />
-            <UserInfo contract={contract} account={account} />
+            <ContractInfo contract={contract} web3={web3} />
+            <UserInfo contract={contract} account={account} web3={web3} />
             <IssuePLSTR web3={web3} contract={contract} account={account} />
-            <RedeemPLSTR contract={contract} account={account} />
+            <RedeemPLSTR contract={contract} account={account} web3={web3} />
             {isController && <AdminPanel web3={web3} contract={contract} account={account} />}
           </>
         ) : (
