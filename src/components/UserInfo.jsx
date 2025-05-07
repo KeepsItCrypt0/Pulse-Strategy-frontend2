@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
 
-const UserInfo = ({ contract, account }) => {
+const UserInfo = ({ contract, account, web3 }) => {
   const [plstrBalance, setPlstrBalance] = useState("0");
   const [redeemableVPLS, setRedeemableVPLS] = useState("0");
   const [loading, setLoading] = useState(true);
@@ -12,12 +11,16 @@ const UserInfo = ({ contract, account }) => {
       setLoading(true);
       setError("");
       const balance = await contract.methods.balanceOf(account).call();
-      if (balance === undefined) {
+      if (balance === undefined || balance === null) {
         throw new Error("Invalid balance response");
       }
       const redeemable = await contract.methods.getRedeemableStakedPLS(account, balance).call();
-      setPlstrBalance(ethers.utils.formatEther(balance));
-      setRedeemableVPLS(ethers.utils.formatEther(redeemable));
+      if (redeemable === undefined || redeemable === null) {
+        throw new Error("Invalid redeemable vPLS response");
+      }
+      setPlstrBalance(web3.utils.fromWei(balance, "ether"));
+      setRedeemableVPLS(web3.utils.fromWei(redeemable, "ether"));
+      console.log("User info fetched:", { plstrBalance: balance, redeemableVPLS: redeemable });
     } catch (error) {
       console.error("Failed to fetch user info:", error);
       setError(`Failed to load user data: ${error.message || "Unknown error"}`);
@@ -27,8 +30,8 @@ const UserInfo = ({ contract, account }) => {
   };
 
   useEffect(() => {
-    if (contract && account) fetchInfo();
-  }, [contract, account]);
+    if (contract && account && web3) fetchInfo();
+  }, [contract, account, web3]);
 
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
