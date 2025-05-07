@@ -8,16 +8,18 @@ const RedeemPLSTR = ({ contract, account }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const fetchBalance = async () => {
+    try {
+      setError("");
+      const balance = await contract.methods.balanceOf(account).call();
+      setPlstrBalance(ethers.utils.formatEther(balance));
+    } catch (err) {
+      console.error("Failed to fetch PLSTR balance:", err);
+      setError(`Failed to load PLSTR balance: ${err.message || "Unknown error"}`);
+    }
+  };
+
   useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const balance = await contract.methods.balanceOf(account).call();
-        setPlstrBalance(ethers.utils.formatEther(balance));
-      } catch (err) {
-        console.error("Failed to fetch PLSTR balance:", err);
-        setError("Failed to load PLSTR balance.");
-      }
-    };
     if (contract && account) fetchBalance();
   }, [contract, account]);
 
@@ -46,8 +48,9 @@ const RedeemPLSTR = ({ contract, account }) => {
       await contract.methods.redeemShares(amountWei).send({ from: account });
       alert("PLSTR redeemed successfully!");
       setAmount("");
+      fetchBalance();
     } catch (err) {
-      setError("Error redeeming PLSTR: " + err.message);
+      setError(`Error redeeming PLSTR: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
