@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
 
-const RedeemPLSTR = ({ contract, account }) => {
+const RedeemPLSTR = ({ contract, account, web3 }) => {
   const [amount, setAmount] = useState("");
   const [plstrBalance, setPlstrBalance] = useState("0");
   const [estimatedVPLS, setEstimatedVPLS] = useState("0");
@@ -12,10 +11,11 @@ const RedeemPLSTR = ({ contract, account }) => {
     try {
       setError("");
       const balance = await contract.methods.balanceOf(account).call();
-      if (balance === undefined) {
+      if (balance === undefined || balance === null) {
         throw new Error("Invalid PLSTR balance response");
       }
-      setPlstrBalance(ethers.utils.formatEther(balance));
+      setPlstrBalance(web3.utils.fromWei(balance, "ether"));
+      console.log("PLSTR balance fetched:", { balance });
     } catch (err) {
       console.error("Failed to fetch PLSTR balance:", err);
       setError(`Failed to load PLSTR balance: ${err.message || "Unknown error"}`);
@@ -23,16 +23,20 @@ const RedeemPLSTR = ({ contract, account }) => {
   };
 
   useEffect(() => {
-    if (contract && account) fetchBalance();
-  }, [contract, account]);
+    if (contract && account && web3) fetchBalance();
+  }, [contract, account, web3]);
 
   useEffect(() => {
     const fetchEstimate = async () => {
       try {
         if (amount && Number(amount) > 0) {
-          const amountWei = ethers.utils.parseEther(amount);
+          const amountWei = web3.utils.toWei(amount, "ether");
           const redeemable = await contract.methods.getRedeemableStakedPLS(account, amountWei).call();
-          setEstimatedVPLS(ethers.utils.formatEther(redeemable));
+          if (redeemable === undefined || redeemable === null) {
+            throw new Error("Invalid redeemable vPLS response");
+          }
+          setEstimatedVPLS(web3.utils.fromWei(redeemable, "ether"));
+          console.log("Estimated vPLS fetched:", { redeemable });
         } else {
           setEstimatedVPLS("0");
         }
@@ -40,20 +44,22 @@ const RedeemPLSTR = ({ contract, account }) => {
         console.error("Failed to fetch estimated vPLS:", err);
       }
     };
-    if (contract && account) fetchEstimate();
-  }, [contract, account, amount]);
+    if (contract && account && web3) fetchEstimate();
+  }, [contract, account, amount, web3]);
 
   const handleRedeem = async () => {
     setLoading(true);
     setError("");
     try {
-      const amountWei = ethers.utils.parseEther(amount);
+      const amountWei = web3.utils.toWei(amount, "ether");
       await contract.methods.redeemShares(amountWei).send({ from: account });
       alert("PLSTR redeemed successfully!");
       setAmount("");
       fetchBalance();
+      console.log("PLSTR redeemed:", { amountWei });
     } catch (err) {
       setError(`Error redeeming PLSTR: ${err.message || "Unknown error"}`);
+      console.error("Redeem PLSTR error:", err);
     } finally {
       setLoading(false);
     }
