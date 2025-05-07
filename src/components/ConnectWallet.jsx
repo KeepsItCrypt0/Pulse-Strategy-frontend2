@@ -19,16 +19,16 @@ const ConnectWallet = ({ account }) => {
   return (
     <div className="mt-4 text-center">
       {account ? (
-        <p className="text-green-600">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
+        <p className="text-green-400">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
       ) : (
         <button
           onClick={connect}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          className="btn-primary"
         >
           Connect Wallet
         </button>
       )}
-      {error && <p className="text-red-600 mt-2">{error}</p>}
+      {error && <p className="text-red-400 mt-2">{error}</p>}
     </div>
   );
 };
