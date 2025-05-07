@@ -12,6 +12,9 @@ const UserInfo = ({ contract, account }) => {
       setLoading(true);
       setError("");
       const balance = await contract.methods.balanceOf(account).call();
+      if (balance === undefined) {
+        throw new Error("Invalid balance response");
+      }
       const redeemable = await contract.methods.getRedeemableStakedPLS(account, balance).call();
       setPlstrBalance(ethers.utils.formatEther(balance));
       setRedeemableVPLS(ethers.utils.formatEther(redeemable));
