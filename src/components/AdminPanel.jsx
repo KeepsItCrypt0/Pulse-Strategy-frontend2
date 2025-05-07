@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
-import { getStakedPLSContract } from "../web3";
+import { getVPLSContract } from "../web3";
 
 const AdminPanel = ({ web3, contract, account }) => {
   const [depositAmount, setDepositAmount] = useState("");
@@ -29,9 +29,9 @@ const AdminPanel = ({ web3, contract, account }) => {
     setLoading(true);
     setError("");
     try {
-      const stakedPLSContract = await getStakedPLSContract(web3);
+      const vPLSContract = await getVPLSContract(web3);
       const amountWei = ethers.utils.parseEther(depositAmount);
-      await stakedPLSContract.methods
+      await vPLSContract.methods
         .approve(contract._address, amountWei)
         .send({ from: account });
       await contract.methods.depositStakedPLS(amountWei).send({ from: account });
@@ -50,10 +50,10 @@ const AdminPanel = ({ web3, contract, account }) => {
     try {
       const amountWei = ethers.utils.parseEther(mintAmount);
       await contract.methods.mintShares(amountWei).send({ from: account });
-      alert("Shares minted successfully!");
+      alert("PLSTR minted successfully!");
       setMintAmount("");
     } catch (err) {
-      setError("Error minting shares: " + err.message);
+      setError("Error minting PLSTR: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -93,29 +93,29 @@ const AdminPanel = ({ web3, contract, account }) => {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">Admin Panel</h2>
+    <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
+      <h2 className="text-xl font-semibold mb-4 text-purple-600">Admin Panel</h2>
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-medium mb-2">Deposit StakedPLS</h3>
+          <h3 className="text-lg font-medium mb-2 text-purple-600">Deposit vPLS</h3>
           <input
             type="number"
             value={depositAmount}
             onChange={(e) => setDepositAmount(e.target.value)}
-            placeholder="Amount of stakedPLS"
+            placeholder="Amount of vPLS"
             className="w-full p-2 border rounded-lg mb-2"
           />
           <button
             onClick={handleDeposit}
             disabled={loading || !depositAmount}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            className={loading || !depositAmount ? "btn-disabled" : "btn-primary"}
           >
             {loading ? "Processing..." : "Deposit"}
           </button>
         </div>
         <div>
-          <h3 className="text-lg font-medium mb-2">Mint Shares</h3>
-          <p>Next Mint Available: {new Date(nextMintTime * 1000).toLocaleString()}</p>
+          <h3 className="text-lg font-medium mb-2 text-purple-600">Mint PLSTR</h3>
+          <p className="text-gray-600">Next Mint Available: {new Date(nextMintTime * 1000).toLocaleString()}</p>
           <input
             type="number"
             value={mintAmount}
@@ -126,13 +126,13 @@ const AdminPanel = ({ web3, contract, account }) => {
           <button
             onClick={handleMint}
             disabled={loading || !mintAmount}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            className={loading || !mintAmount ? "btn-disabled" : "btn-primary"}
           >
-            {loading ? "Processing..." : "Mint Shares"}
+            {loading ? "Processing..." : "Mint PLSTR"}
           </button>
         </div>
         <div>
-          <h3 className="text-lg font-medium mb-2">Recover Tokens</h3>
+          <h3 className="text-lg font-medium mb-2 text-purple-600">Recover Tokens</h3>
           <input
             type="text"
             value={recoverToken}
@@ -157,13 +157,13 @@ const AdminPanel = ({ web3, contract, account }) => {
           <button
             onClick={handleRecover}
             disabled={loading || !recoverToken || !recoverRecipient || !recoverAmount}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            className={loading || !recoverToken || !recoverRecipient || !recoverAmount ? "btn-disabled" : "btn-primary"}
           >
             {loading ? "Processing..." : "Recover Tokens"}
           </button>
         </div>
         <div>
-          <h3 className="text-lg font-medium mb-2">Transfer Ownership</h3>
+          <h3 className="text-lg font-medium mb-2 text-purple-600">Transfer Ownership</h3>
           <input
             type="text"
             value={newController}
@@ -174,15 +174,8 @@ const AdminPanel = ({ web3, contract, account }) => {
           <button
             onClick={handleTransferOwnership}
             disabled={loading || !newController}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            className={loading || !newController ? "btn-disabled" : "btn-primary"}
           >
-            {loading ? "Processing..." : "Transfer Ownership"}
-          </button>
-        </div>
-      </div>
-      {error && <p className="text-red-600 mt-4">{error}</p>}
-    </div>
-  );
-};
+            {loading ? "Processing..." : "Transfer...
 
-export default AdminPanel;
+Something went wrong, please refresh to reconnect or try again.
