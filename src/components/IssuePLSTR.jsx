@@ -10,8 +10,19 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const formatNumber = (num) => {
-    return parseFloat(num.toFixed(6)).toString(); // Remove trailing zeros, max 6 decimals
+  const formatNumber = (value) => {
+    try {
+      // Convert input to number, handling strings or numbers
+      const num = typeof value === "string" ? parseFloat(value) : Number(value);
+      if (isNaN(num)) {
+        console.error("formatNumber: Invalid number input:", value);
+        return "0";
+      }
+      return parseFloat(num.toFixed(6)).toString(); // Remove trailing zeros, max 6 decimals
+    } catch (err) {
+      console.error("formatNumber error:", err, { value });
+      return "0";
+    }
   };
 
   const fetchBalance = async () => {
@@ -43,6 +54,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
           const amountNum = Number(amount);
           const amountWei = web3.utils.toWei(amountNum.toString(), "ether");
           const result = await contract.methods.calculateSharesReceived(amountWei).call();
+          console.log("calculateSharesReceived result:", result);
           const shares = web3.utils.fromWei(result.shares, "ether");
           const fee = web3.utils.fromWei(result.fee, "ether");
           setEstimatedPLSTR(formatNumber(shares));
@@ -51,6 +63,8 @@ const IssuePLSTR = ({ web3, contract, account }) => {
             amount: amountNum,
             shares,
             fee,
+            formattedShares: formatNumber(shares),
+            formattedFee: formatNumber(fee),
           });
         } else {
           setEstimatedPLSTR("0");
