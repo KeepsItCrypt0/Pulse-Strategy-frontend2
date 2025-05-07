@@ -5,13 +5,14 @@ import IssuePLSTR from "./components/IssuePLSTR";
 import RedeemPLSTR from "./components/RedeemPLSTR";
 import AdminPanel from "./components/AdminPanel";
 import UserInfo from "./components/UserInfo";
-import { getWeb3, getContract } from "./web3";
+import { getWeb3, getContract, contractAddress } from "./web3";
 
 function App() {
   const [web3, setWeb3] = useState(null);
   const [contract, setContract] = useState(null);
   const [account, setAccount] = useState(null);
   const [isController, setIsController] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({ network: "Unknown", contract: "Unknown" });
 
   useEffect(() => {
     const init = async () => {
@@ -24,8 +25,14 @@ function App() {
         setContract(contractInstance);
         const owner = await contractInstance.methods.owner().call();
         setIsController(accounts[0]?.toLowerCase() === owner.toLowerCase());
+        const chainId = await web3Instance.eth.getChainId();
+        setDebugInfo({
+          network: chainId === 1 ? "Ethereum Mainnet" : `Chain ID: ${chainId}`,
+          contract: contractAddress,
+        });
       } catch (error) {
         console.error("Web3 initialization failed:", error);
+        setDebugInfo((prev) => ({ ...prev, contract: `Failed: ${error.message}` }));
       }
     };
     init();
@@ -36,7 +43,7 @@ function App() {
       <header className="w-full max-w-4xl bg-white bg-opacity-90 shadow-lg rounded-lg p-6 mb-6 card">
         <h1 className="text-3xl font-bold text-center text-purple-600">PulseStrategy</h1>
         <p className="text-center text-gray-600 mt-2">Interact with the PLSTR contract on Ethereum Mainnet</p>
-        <ConnectWallet account={account} />
+        <ConnectWallet account={account} web3={web3} />
       </header>
       <main className="w-full max-w-4xl space-y-6">
         {account && contract ? (
@@ -50,6 +57,11 @@ function App() {
         ) : (
           <p className="text-center text-white">Please connect your wallet to interact with the contract.</p>
         )}
+        <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
+          <h2 className="text-xl font-semibold mb-4 text-purple-600">Debug Information</h2>
+          <p><strong>Network:</strong> {debugInfo.network}</p>
+          <p><strong>Contract Address:</strong> {debugInfo.contract}</p>
+        </div>
       </main>
       <footer className="mt-12 text-center text-white">
         <p className="mb-4">
