@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
 import { getVPLSContract } from "../web3";
 
 const IssuePLSTR = ({ web3, contract, account }) => {
@@ -13,10 +12,11 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       setError("");
       const vPLSContract = await getVPLSContract(web3);
       const balance = await vPLSContract.methods.balanceOf(account).call();
-      if (balance === undefined) {
+      if (balance === undefined || balance === null) {
         throw new Error("Invalid vPLS balance response");
       }
-      setVPLSBalance(ethers.utils.formatEther(balance));
+      setVPLSBalance(web3.utils.fromWei(balance, "ether"));
+      console.log("vPLS balance fetched:", { balance });
     } catch (err) {
       console.error("Failed to fetch vPLS balance:", err);
       setError(`Failed to load vPLS balance: ${err.message || "Unknown error"}`);
@@ -32,7 +32,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
     setError("");
     try {
       const vPLSContract = await getVPLSContract(web3);
-      const amountWei = ethers.utils.parseEther(amount);
+      const amountWei = web3.utils.toWei(amount, "ether");
       await vPLSContract.methods
         .approve(contract._address, amountWei)
         .send({ from: account });
@@ -40,8 +40,10 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       alert("PLSTR issued successfully!");
       setAmount("");
       fetchBalance();
+      console.log("PLSTR issued:", { amountWei });
     } catch (err) {
       setError(`Error issuing PLSTR: ${err.message || "Unknown error"}`);
+      console.error("Issue PLSTR error:", err);
     } finally {
       setLoading(false);
     }
