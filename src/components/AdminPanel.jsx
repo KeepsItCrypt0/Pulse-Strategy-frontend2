@@ -11,19 +11,6 @@ const AdminPanel = ({ web3, contract, account }) => {
   const [error, setError] = useState("");
   const [mintCountdown, setMintCountdown] = useState("");
   const [nextMintTime, setNextMintTime] = useState("0");
-  const [hasIssuedShares, setHasIssuedShares] = useState(false);
-
-  const checkIssuance = async () => {
-    try {
-      const shareInfo = await contract.methods.getUserShareInfo(account).call();
-      const shareBalance = Number(shareInfo.shareBalance);
-      setHasIssuedShares(shareBalance > 0);
-      console.log("Checked issuance:", { account, shareBalance, hasIssuedShares: shareBalance > 0 });
-    } catch (err) {
-      console.error("Failed to check issuance:", err);
-      setError(`Failed to load share info: ${err.message || "Unknown error"}`);
-    }
-  };
 
   const fetchNextMintTime = async () => {
     try {
@@ -37,11 +24,8 @@ const AdminPanel = ({ web3, contract, account }) => {
   };
 
   useEffect(() => {
-    if (contract && web3 && account) {
-      checkIssuance();
-      if (hasIssuedShares) fetchNextMintTime();
-    }
-  }, [contract, web3, account, hasIssuedShares]);
+    if (contract && web3) fetchNextMintTime();
+  }, [contract, web3]);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -56,14 +40,10 @@ const AdminPanel = ({ web3, contract, account }) => {
       const seconds = secondsRemaining % 60;
       setMintCountdown(`${hours}h ${minutes}m ${seconds}s`);
     };
-    if (hasIssuedShares) {
-      updateCountdown();
-      const interval = setInterval(updateCountdown, 1000);
-      return () => clearInterval(interval);
-    } else {
-      setMintCountdown(""); // Hide countdown if no issuance
-    }
-  }, [nextMintTime, hasIssuedShares]);
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [nextMintTime]);
 
   const handleMint = async () => {
     setLoading(true);
@@ -73,8 +53,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       await contract.methods.mintShares(amountWei).send({ from: account });
       alert("PLSTR minted successfully!");
       setMintAmount("");
-      fetchNextMintTime();
-      checkIssuance(); // Re-check issuance after mint
+      fetchNextMintTime(); // Refresh nextMintTime after minting
       console.log("PLSTR minted:", { amountWei });
     } catch (err) {
       setError(`Error minting PLSTR: ${err.message || "Unknown error"}`);
@@ -141,9 +120,7 @@ const AdminPanel = ({ web3, contract, account }) => {
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
       <h2 className="text-xl font-semibold mb-4 text-purple-600">Admin Panel</h2>
-      {hasIssuedShares && mintCountdown && (
-        <p className="text-gray-600 mb-4">Next Mint In: {mintCountdown}</p>
-      )}
+      <p className="text-gray-600 mb-4">Next Mint In: {mintCountdown}</p>
       <div className="mb-6">
         <h3 className="text-lg font-medium mb-2">Mint PLSTR</h3>
         <input
@@ -203,7 +180,7 @@ const AdminPanel = ({ web3, contract, account }) => {
         />
         <button
           onClick={handleRecover}
-          disabled={ albertyou || !tokenAddress || !recipientAddress || !recoverAmount}
+          disabled={loading || !tokenAddress || !recipientAddress || !recoverAmount}
           className="btn-primary"
         >
           {loading ? "Processing..." : "Recover Tokens"}
