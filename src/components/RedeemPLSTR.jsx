@@ -12,6 +12,9 @@ const RedeemPLSTR = ({ contract, account }) => {
     try {
       setError("");
       const balance = await contract.methods.balanceOf(account).call();
+      if (balance === undefined) {
+        throw new Error("Invalid PLSTR balance response");
+      }
       setPlstrBalance(ethers.utils.formatEther(balance));
     } catch (err) {
       console.error("Failed to fetch PLSTR balance:", err);
