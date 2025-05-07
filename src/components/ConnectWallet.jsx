@@ -16,6 +16,8 @@ const ConnectWallet = ({ account, web3 }) => {
     }
   };
 
+  const plstrAddress = "0x6c1dA678A1B615f673208e74AB3510c22117090e";
+
   return (
     <div className="mt-4 text-center">
       <h2 className="text-lg font-semibold text-gray-800">Wallet Connection</h2>
@@ -25,13 +27,13 @@ const ConnectWallet = ({ account, web3 }) => {
           <p className="text-gray-600">
             PLSTR Contract:{" "}
             <a
-              href="https://etherscan.io/address/0x6c1dA678A1B615f673208e74AB3510c22117090e"
+              href={`https://etherscan.io/address/${plstrAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-purple-300 hover:text-red-300 truncate inline-block max-w-[200px]"
-              title="0x6c1dA678A1B615f673208e74AB3510c22117090e"
+              title={plstrAddress}
             >
-              {account.slice(0, 6)}...{account.slice(-4)}
+              {plstrAddress.slice(0, 6)}...{plstrAddress.slice(-4)}
             </a>
           </p>
         </>
