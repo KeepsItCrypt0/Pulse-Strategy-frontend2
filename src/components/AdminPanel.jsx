@@ -15,22 +15,40 @@ const AdminPanel = ({ web3, contract, account }) => {
   const fetchNextMintTime = async () => {
     try {
       setError("");
-      if (!contract || !contract.methods.getOwnerMintInfo) {
-        throw new Error("getOwnerMintInfo method not available in contract");
+      if (!contract) {
+        throw new Error("Contract not initialized");
       }
-      const result = await contract.methods.getOwnerMintInfo().call();
-      setNextMintTime(result.nextMintTime || "0");
-      console.log("Next mint time:", result.nextMintTime);
-    } catch (err) {
-      console.error("Failed to fetch next mint time:", err);
+
+      // Try getOwnerMintInfo first
+      let mintTime = "0";
+      if (contract.methods.getOwnerMintInfo) {
+        try {
+          const result = await contract.methods.getOwnerMintInfo().call();
+          mintTime = result.nextMintTime || "0";
+          console.log("Next mint time from getOwnerMintInfo:", mintTime);
+        } catch (err) {
+          console.warn("getOwnerMintInfo failed:", err.message);
+        }
+      } else {
+        console.warn("getOwnerMintInfo method not available");
+      }
+
       // Fallback to remainingIssuancePeriod
-      try {
-        const info = await contract.methods.getContractInfo().call();
-        setNextMintTime(info.remainingIssuancePeriod || "0");
-        console.log("Fallback to remainingIssuancePeriod:", info.remainingIssuancePeriod);
-      } catch (fallbackErr) {
-        setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
+      const info = await contract.methods.getContractInfo().call();
+      const issuancePeriod = info.remainingIssuancePeriod || "0";
+      console.log("remainingIssuancePeriod:", issuancePeriod);
+
+      // Use issuancePeriod if it's non-zero and greater than mintTime
+      if (Number(issuancePeriod) > 0 && Number(issuancePeriod) > Number(mintTime)) {
+        mintTime = issuancePeriod;
+        console.log("Using remainingIssuancePeriod for countdown:", mintTime);
       }
+
+      setNextMintTime(mintTime);
+    } catch (err) {
+      console.error("Failed to fetch mint info:", err);
+      setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
+      setNextMintTime("0");
     }
   };
 
@@ -41,15 +59,21 @@ const AdminPanel = ({ web3, contract, account }) => {
   useEffect(() => {
     const updateCountdown = () => {
       const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
-      const secondsRemaining = Number(nextMintTime) - now;
+      const secondsRemaining = Number(nextMintTime);
       if (secondsRemaining <= 0) {
+        setMintCountdown("Issuance Period Ended or Data Unavailable");
+        return;
+      }
+      const adjustedSeconds = secondsRemaining - now;
+      if (adjustedSeconds <= 0) {
         setMintCountdown("Mint Available Now");
         return;
       }
-      const hours = Math.floor(secondsRemaining / 3600);
-      const minutes = Math.floor((secondsRemaining % 3600) / 60);
-      const seconds = secondsRemaining % 60;
-      setMintCountdown(`${hours}h ${minutes}m ${seconds}s`);
+      const days = Math.floor(adjustedSeconds / 86400);
+      const hours = Math.floor((adjustedSeconds % 86400) / 3600);
+      const minutes = Math.floor((adjustedSeconds % 3600) / 60);
+      const seconds = adjustedSeconds % 60;
+      setMintCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
     };
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
