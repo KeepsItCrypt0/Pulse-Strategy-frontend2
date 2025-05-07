@@ -2,17 +2,21 @@ import { useState } from "react";
 
 const ConnectWallet = ({ account }) => {
   const [error, setError] = useState("");
+  const [connecting, setConnecting] = useState(false);
 
   const connect = async () => {
+    setConnecting(true);
+    setError("");
     try {
-      if (window.ethereum) {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        window.location.reload();
-      } else {
-        setError("Please install MetaMask or another Web3 wallet.");
+      if (!window.ethereum) {
+        throw new Error("MetaMask or another Web3 wallet is not installed.");
       }
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      window.location.reload();
     } catch (err) {
-      setError("Failed to connect wallet: " + err.message);
+      setError(err.message);
+    } finally {
+      setConnecting(false);
     }
   };
 
@@ -21,14 +25,27 @@ const ConnectWallet = ({ account }) => {
       {account ? (
         <p className="text-green-400">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
       ) : (
-        <button
-          onClick={connect}
-          className="btn-primary"
-        >
-          Connect Wallet
-        </button>
+        <>
+          <button
+            onClick={connect}
+            disabled={connecting}
+            className={connecting ? "btn-disabled" : "btn-primary"}
+          >
+            {connecting ? "Connecting..." : "Connect Wallet"}
+          </button>
+          {error && (
+            <div className="mt-2">
+              <p className="text-red-400">{error}</p>
+              <button
+                onClick={connect}
+                className="mt-2 text-purple-300 hover:text-pink-400"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </>
       )}
-      {error && <p className="text-red-400 mt-2">{error}</p>}
     </div>
   );
 };
