@@ -9,22 +9,44 @@ const IssuePLSTR = ({ web3, contract, vplsContract, account }) => {
   const [error, setError] = useState("");
   const MIN_ISSUE_AMOUNT = 1005; // Minimum issuance amount in vPLS
 
-  const fetchVplsBalance = async () => {
-    try {
-      if (!vplsContract || !account) return;
-      const balance = await vplsContract.methods.balanceOf(account).call();
-      setVplsBalance(web3.utils.fromWei(balance, "ether"));
-      console.log("VPLS balance fetched:", { balance });
-    } catch (err) {
-      console.error("Error fetching vPLS balance:", err);
-      setError(`Error fetching vPLS balance: ${err.message || "Unknown error"}`);
+  const fetchVplsBalance = async (retries = 3, delay = 1000) => {
+    if (!web3 || !vplsContract || !account) {
+      setError("Wallet or contract not connected");
+      console.error("Missing dependencies:", { web3: !!web3, vplsContract: !!vplsContract, account });
+      return;
+    }
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const balance = await vplsContract.methods.balanceOf(account).call();
+        const balanceEther = web3.utils.fromWei(balance, "ether");
+        setVplsBalance(balanceEther);
+        setError(""); // Clear any previous errors
+        console.log("VPLS balance fetched:", { balance, balanceEther });
+        return;
+      } catch (err) {
+        console.error(`Attempt ${attempt} failed to fetch vPLS balance:`, err);
+        if (attempt === retries) {
+          setError(`Failed to fetch vPLS balance: ${err.message || "Unknown error"}`);
+        }
+        if (err.message.includes("message channel closed")) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
     }
   };
 
   useEffect(() => {
-    if (web3 && vplsContract && account) {
-      fetchVplsBalance();
-    }
+    let isMounted = true;
+    const loadBalance = async () => {
+      if (isMounted && web3 && vplsContract && account) {
+        await fetchVplsBalance();
+      }
+    };
+    loadBalance();
+    return () => {
+      isMounted = false;
+    };
   }, [web3, vplsContract, account]);
 
   useEffect(() => {
@@ -56,7 +78,7 @@ const IssuePLSTR = ({ web3, contract, vplsContract, account }) => {
       await contract.methods.issueShares(amountWei).send({ from: account });
       alert("PLSTR issued successfully!");
       setIssueAmount("");
-      fetchVplsBalance(); // Refresh balance after issuance
+      await fetchVplsBalance(); // Refresh balance
       console.log("PLSTR issued:", { amountWei });
     } catch (err) {
       setError(`Error issuing PLSTR: ${err.message || "Unknown error"}`);
