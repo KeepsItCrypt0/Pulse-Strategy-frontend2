@@ -71,9 +71,11 @@ const IssuePLSTR = ({ web3, contract, vplsContract, account }) => {
       <h2 className="text-xl font-semibold mb-4 text-purple-600">Issue PLSTR</h2>
       <div className="mb-4">
         <p className="text-gray-600 mb-2">
-          User vPLS Balance: <span className="text-purple-600">{Number(vplsBalance).toFixed(3)} vPLS</span>
+          Estimated Fee (0.5%): <span className="text-purple-600">{estimatedFee} vPLS</span>
         </p>
-        <label className="block text-gray-700 mb-2">vPLS Amount</label>
+        <p className="text-gray-600 mb-2">
+          Estimated PLSTR Receivable: <span className="text-purple-600">{estimatedPLSTR} PLSTR</span>
+        </p>
         <input
           type="number"
           value={issueAmount}
@@ -82,15 +84,10 @@ const IssuePLSTR = ({ web3, contract, vplsContract, account }) => {
           className="w-full p-2 border rounded-lg"
         />
         <p className="text-sm text-gray-600 mt-1">
-          Minimum issuance amount is <span className="text-purple-600 font-medium">1005 vPLS</span>.
+          minimum <span className="text-purple-600 font-medium">1005 vPLS</span>
         </p>
-      </div>
-      <div className="mb-4">
-        <p className="text-gray-600">
-          Estimated Fee (0.5%): <span className="text-purple-600">{estimatedFee} vPLS</span>
-        </p>
-        <p className="text-gray-600">
-          Estimated PLSTR Receivable: <span className="text-purple-600">{estimatedPLSTR} PLSTR</span>
+        <p className="text-gray-600 mt-1">
+          User vPLS Balance: <span className="text-purple-600">{Number(vplsBalance).toFixed(3)} vPLS</span>
         </p>
       </div>
       <button
