@@ -1,85 +1,93 @@
 import { useState, useEffect } from "react";
+import { getVPLSContract } from "../web3";
 
 const IssuePLSTR = ({ web3, contract, account }) => {
-  const [issueAmount, setIssueAmount] = useState("");
-  const [vplsBalance, setVplsBalance] = useState("0");
-  const [estimatedFee, setEstimatedFee] = useState("0");
+  const [amount, setAmount] = useState("");
+  const [vPLSBalance, setVPLSBalance] = useState("0");
   const [estimatedPLSTR, setEstimatedPLSTR] = useState("0");
+  const [estimatedFee, setEstimatedFee] = useState("0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const MIN_ISSUE_AMOUNT = 1005; // Minimum issuance amount in vPLS
 
-  const fetchVplsBalance = async () => {
-    console.log("fetchVplsBalance called:", { web3: !!web3, contract: !!contract, account });
-    if (!web3 || !contract || !account) {
-      const errorMsg = "Missing dependencies: web3, contract, or account";
-      setError(errorMsg);
-      console.error(errorMsg, { web3: !!web3, contract: !!contract, account });
-      return;
-    }
-
+  const fetchBalance = async () => {
     try {
-      console.log("Calling redeemableVPLS for account:", account);
-      const balance = await contract.methods.redeemableVPLS(account).call();
-      console.log("Raw balance:", balance);
+      setError("");
+      console.log("fetchBalance called:", { web3: !!web3, account });
+      if (!web3 || !account) {
+        throw new Error("Web3 or account not initialized");
+      }
+      const vPLSContract = await getVPLSContract(web3);
+      const balance = await vPLSContract.methods.balanceOf(account).call();
+      if (balance === undefined || balance === null) {
+        throw new Error("Invalid vPLS balance response");
+      }
       const balanceEther = web3.utils.fromWei(balance, "ether");
-      console.log("Formatted balance:", balanceEther);
-      setVplsBalance(balanceEther);
-      setError(""); // Clear errors
-      console.log("VPLS balance fetched:", { balance, balanceEther });
+      setVPLSBalance(balanceEther);
+      console.log("vPLS balance fetched:", { balance, balanceEther });
     } catch (err) {
-      const errorMsg = `Failed to fetch vPLS balance: ${err.message || "Unknown error"}`;
+      const errorMsg = `Failed to load vPLS balance: ${err.message || "Unknown error"}`;
       setError(errorMsg);
-      console.error(errorMsg, err);
+      console.error("Failed to fetch vPLS balance:", err);
     }
   };
 
   useEffect(() => {
-    console.log("useEffect triggered:", { web3: !!web3, contract: !!contract, account });
-    if (web3 && contract && account) {
-      fetchVplsBalance();
-    } else {
-      console.log("Skipping fetchVplsBalance due to missing dependencies");
+    if (web3 && account) {
+      console.log("useEffect for fetchBalance triggered:", { web3: !!web3, account });
+      fetchBalance();
     }
-  }, [web3, contract, account]);
+  }, [web3, account]);
 
   useEffect(() => {
-    const calculateEstimates = () => {
+    const fetchEstimate = async () => {
       try {
-        const amount = Number(issueAmount) || 0;
-        const fee = amount * 0.005; // 0.5% fee
-        const plstr = amount - fee;
-        setEstimatedFee(fee.toFixed(3));
-        setEstimatedPLSTR(plstr.toFixed(3));
-        console.log("Estimates calculated:", { issueAmount, fee, plstr });
+        if (amount && Number(amount) > 0) {
+          const amountNum = Number(amount);
+          const fee = amountNum * 0.005; // 0.5% fee
+          const effectiveAmount = amountNum * 0.995; // Amount after fee
+          const amountWei = web3.utils.toWei(effectiveAmount.toString(), "ether");
+          const ratio = await contract.methods.getVPLSBackingRatio().call();
+          const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
+          const estimated = effectiveAmount * ratioDecimal;
+          setEstimatedPLSTR(estimated.toFixed(3));
+          setEstimatedFee(fee.toFixed(3));
+          console.log("Estimated PLSTR fetched:", { amount, fee, effectiveAmount, ratio, estimated });
+        } else {
+          setEstimatedPLSTR("0");
+          setEstimatedFee("0");
+        }
       } catch (err) {
-        console.error("Error calculating estimates:", err);
-        setEstimatedFee("0");
+        console.error("Failed to fetch estimated PLSTR:", err);
         setEstimatedPLSTR("0");
+        setEstimatedFee("0");
       }
     };
-    calculateEstimates();
-  }, [issueAmount]);
+    if (contract && web3) {
+      console.log("useEffect for fetchEstimate triggered:", { contract: !!contract, web3: !!web3, amount });
+      fetchEstimate();
+    }
+  }, [contract, web3, amount]);
 
   const handleIssue = async () => {
     setLoading(true);
     setError("");
     try {
-      const amount = Number(issueAmount);
-      if (amount < MIN_ISSUE_AMOUNT) {
+      const amountNum = Number(amount);
+      if (amountNum < MIN_ISSUE_AMOUNT) {
         throw new Error(`Amount must be at least ${MIN_ISSUE_AMOUNT} vPLS`);
       }
-      const amountWei = web3.utils.toWei(issueAmount, "ether");
+      const amountWei = web3.utils.toWei(amount, "ether");
       console.log("Issuing PLSTR:", { amountWei });
       await contract.methods.issueShares(amountWei).send({ from: account });
       alert("PLSTR issued successfully!");
-      setIssueAmount("");
-      await fetchVplsBalance(); // Refresh balance
+      setAmount("");
+      await fetchBalance();
       console.log("PLSTR issued successfully");
     } catch (err) {
       const errorMsg = `Error issuing PLSTR: ${err.message || "Unknown error"}`;
       setError(errorMsg);
-      console.error(errorMsg, err);
+      console.error("Issue PLSTR error:", err);
     } finally {
       setLoading(false);
     }
@@ -97,21 +105,23 @@ const IssuePLSTR = ({ web3, contract, account }) => {
         </p>
         <input
           type="number"
-          value={issueAmount}
-          onChange={(e) => setIssueAmount(e.target.value)}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
           placeholder="Enter vPLS amount"
           className="w-full p-2 border rounded-lg"
+          min="0"
+          step="0.000000000000000001"
         />
         <p className="text-sm text-gray-600 mt-1">
           minimum <span className="text-purple-600 font-medium">1005 vPLS</span>
         </p>
         <p className="text-gray-600 mt-1">
-          User vPLS Balance: <span className="text-purple-600">{Number(vplsBalance).toFixed(3)} vPLS</span>
+          User vPLS Balance: <span className="text-purple-600">{Number(vPLSBalance).toFixed(3)} vPLS</span>
         </p>
       </div>
       <button
         onClick={handleIssue}
-        disabled={loading || !issueAmount || Number(issueAmount) < MIN_ISSUE_AMOUNT}
+        disabled={loading || !amount || Number(amount) < MIN_ISSUE_AMOUNT}
         className="btn-primary"
       >
         {loading ? "Processing..." : "Issue PLSTR"}
