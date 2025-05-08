@@ -13,30 +13,21 @@ const IssuePLSTR = ({ web3, contract, account }) => {
   const fetchBalance = async () => {
     try {
       setError("");
-      console.log("fetchBalance called:", { web3: !!web3, account });
-      if (!web3 || !account) {
-        throw new Error("Web3 or account not initialized");
-      }
       const vPLSContract = await getVPLSContract(web3);
       const balance = await vPLSContract.methods.balanceOf(account).call();
       if (balance === undefined || balance === null) {
         throw new Error("Invalid vPLS balance response");
       }
-      const balanceEther = web3.utils.fromWei(balance, "ether");
-      setVPLSBalance(balanceEther);
-      console.log("vPLS balance fetched:", { balance, balanceEther });
+      setVPLSBalance(web3.utils.fromWei(balance, "ether"));
+      console.log("vPLS balance fetched:", { balance });
     } catch (err) {
-      const errorMsg = `Failed to load vPLS balance: ${err.message || "Unknown error"}`;
-      setError(errorMsg);
       console.error("Failed to fetch vPLS balance:", err);
+      setError(`Failed to load vPLS balance: ${err.message || "Unknown error"}`);
     }
   };
 
   useEffect(() => {
-    if (web3 && account) {
-      console.log("useEffect for fetchBalance triggered:", { web3: !!web3, account });
-      fetchBalance();
-    }
+    if (web3 && account) fetchBalance();
   }, [web3, account]);
 
   useEffect(() => {
@@ -50,8 +41,8 @@ const IssuePLSTR = ({ web3, contract, account }) => {
           const ratio = await contract.methods.getVPLSBackingRatio().call();
           const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
           const estimated = effectiveAmount * ratioDecimal;
-          setEstimatedPLSTR(estimated.toFixed(3));
-          setEstimatedFee(fee.toFixed(3));
+          setEstimatedPLSTR(estimated.toFixed(18));
+          setEstimatedFee(fee.toFixed(18));
           console.log("Estimated PLSTR fetched:", { amount, fee, effectiveAmount, ratio, estimated });
         } else {
           setEstimatedPLSTR("0");
@@ -59,14 +50,9 @@ const IssuePLSTR = ({ web3, contract, account }) => {
         }
       } catch (err) {
         console.error("Failed to fetch estimated PLSTR:", err);
-        setEstimatedPLSTR("0");
-        setEstimatedFee("0");
       }
     };
-    if (contract && web3) {
-      console.log("useEffect for fetchEstimate triggered:", { contract: !!contract, web3: !!web3, amount });
-      fetchEstimate();
-    }
+    if (contract && web3) fetchEstimate();
   }, [contract, web3, amount]);
 
   const handleIssue = async () => {
@@ -77,16 +63,18 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       if (amountNum < MIN_ISSUE_AMOUNT) {
         throw new Error(`Amount must be at least ${MIN_ISSUE_AMOUNT} vPLS`);
       }
+      const vPLSContract = await getVPLSContract(web3);
       const amountWei = web3.utils.toWei(amount, "ether");
-      console.log("Issuing PLSTR:", { amountWei });
+      await vPLSContract.methods
+        .approve(contract._address, amountWei)
+        .send({ from: account });
       await contract.methods.issueShares(amountWei).send({ from: account });
       alert("PLSTR issued successfully!");
       setAmount("");
-      await fetchBalance();
-      console.log("PLSTR issued successfully");
+      fetchBalance();
+      console.log("PLSTR issued:", { amountWei });
     } catch (err) {
-      const errorMsg = `Error issuing PLSTR: ${err.message || "Unknown error"}`;
-      setError(errorMsg);
+      setError(`Error issuing PLSTR: ${err.message || "Unknown error"}`);
       console.error("Issue PLSTR error:", err);
     } finally {
       setLoading(false);
