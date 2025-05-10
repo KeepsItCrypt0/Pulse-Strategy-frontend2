@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "../utils/format";
 
 const AdminPanel = ({ web3, contract, account }) => {
   const [mintAmount, setMintAmount] = useState("");
+  const [displayMintAmount, setDisplayMintAmount] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
+  const [displayDepositAmount, setDisplayDepositAmount] = useState("");
   const [tokenAddress, setTokenAddress] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
   const [recoverAmount, setRecoverAmount] = useState("");
+  const [displayRecoverAmount, setDisplayRecoverAmount] = useState("");
   const [newOwner, setNewOwner] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -91,6 +95,23 @@ const AdminPanel = ({ web3, contract, account }) => {
     return () => clearInterval(interval);
   }, [remainingSeconds]);
 
+  const handleNumericInputChange = (e, setRaw, setDisplay) => {
+    const rawValue = e.target.value.replace(/,/g, "");
+    if (rawValue === "" || /^-?\d*\.?\d*$/.test(rawValue)) {
+      setRaw(rawValue);
+      if (rawValue === "" || isNaN(rawValue)) {
+        setDisplay("");
+      } else {
+        setDisplay(
+          new Intl.NumberFormat("en-US", {
+            maximumFractionDigits: 18,
+            minimumFractionDigits: 0,
+          }).format(rawValue)
+        );
+      }
+    }
+  };
+
   const handleMint = async () => {
     setLoading(true);
     setError("");
@@ -99,6 +120,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       await contract.methods.mintShares(amountWei).send({ from: account });
       alert("PLSTR minted successfully!");
       setMintAmount("");
+      setDisplayMintAmount("");
       fetchMintInfo(); // Refresh after minting
       console.log("PLSTR minted:", { amountWei });
     } catch (err) {
@@ -117,6 +139,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       await contract.methods.depositStakedPLS(amountWei).send({ from: account });
       alert("vPLS deposited successfully!");
       setDepositAmount("");
+      setDisplayDepositAmount("");
       console.log("vPLS deposited:", { amountWei });
     } catch (err) {
       setError(`Error depositing vPLS: ${err.message || "Unknown error"}`);
@@ -138,6 +161,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       setTokenAddress("");
       setRecipientAddress("");
       setRecoverAmount("");
+      setDisplayRecoverAmount("");
       console.log("Tokens recovered:", { tokenAddress, recipientAddress, amountWei });
     } catch (err) {
       setError(`Error recovering tokens: ${err.message || "Unknown error"}`);
@@ -170,9 +194,9 @@ const AdminPanel = ({ web3, contract, account }) => {
       <div className="mb-6">
         <h3 className="text-lg font-medium mb-2">Mint PLSTR</h3>
         <input
-          type="number"
-          value={mintAmount}
-          onChange={(e) => setMintAmount(e.target.value)}
+          type="text"
+          value={displayMintAmount}
+          onChange={(e) => handleNumericInputChange(e, setMintAmount, setDisplayMintAmount)}
           placeholder="Amount to mint"
           className="w-full p-2 border rounded-lg mb-2"
         />
@@ -187,9 +211,9 @@ const AdminPanel = ({ web3, contract, account }) => {
       <div className="mb-6">
         <h3 className="text-lg font-medium mb-2">Deposit vPLS</h3>
         <input
-          type="number"
-          value={depositAmount}
-          onChange={(e) => setDepositAmount(e.target.value)}
+          type="text"
+          value={displayDepositAmount}
+          onChange={(e) => handleNumericInputChange(e, setDepositAmount, setDisplayDepositAmount)}
           placeholder="Amount to deposit"
           className="w-full p-2 border rounded-lg mb-2"
         />
@@ -218,9 +242,9 @@ const AdminPanel = ({ web3, contract, account }) => {
           className="w-full p-2 border rounded-lg mb-2"
         />
         <input
-          type="number"
-          value={recoverAmount}
-          onChange={(e) => setRecoverAmount(e.target.value)}
+          type="text"
+          value={displayRecoverAmount}
+          onChange={(e) => handleNumericInputChange(e, setRecoverAmount, setDisplayRecoverAmount)}
           placeholder="Amount to recover"
           className="w-full p-2 border rounded-lg mb-2"
         />
