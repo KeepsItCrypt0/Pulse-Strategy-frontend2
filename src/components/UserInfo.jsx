@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "../utils/format";
 
 const UserInfo = ({ contract, account, web3 }) => {
   const [plstrBalance, setPlstrBalance] = useState("0");
@@ -50,8 +51,12 @@ const UserInfo = ({ contract, account, web3 }) => {
         </div>
       ) : (
         <>
-          <p><strong>PLSTR Balance:</strong> {plstrBalance} PLSTR</p>
-          <p><strong>Redeemable vPLS:</strong> {redeemableVPLS} vPLS</p>
+          <p>
+            <strong>PLSTR Balance:</strong> {formatNumber(plstrBalance)} PLSTR
+          </p>
+          <p>
+            <strong>Redeemable vPLS:</strong> {formatNumber(redeemableVPLS)} vPLS
+          </p>
         </>
       )}
     </div>
