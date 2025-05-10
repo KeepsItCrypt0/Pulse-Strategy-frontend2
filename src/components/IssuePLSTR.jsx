@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { getVPLSContract } from "../web3";
+import { formatNumber } from "../utils/format";
 
 const IssuePLSTR = ({ web3, contract, account }) => {
   const [amount, setAmount] = useState("");
+  const [displayAmount, setDisplayAmount] = useState("");
   const [vPLSBalance, setVPLSBalance] = useState("0");
   const [estimatedPLSTR, setEstimatedPLSTR] = useState("0");
   const [estimatedFee, setEstimatedFee] = useState("0");
@@ -41,8 +43,8 @@ const IssuePLSTR = ({ web3, contract, account }) => {
           const ratio = await contract.methods.getVPLSBackingRatio().call();
           const ratioDecimal = Number(web3.utils.fromWei(ratio, "ether"));
           const estimated = effectiveAmount * ratioDecimal;
-          setEstimatedPLSTR(estimated.toFixed(18));
-          setEstimatedFee(fee.toFixed(18));
+          setEstimatedPLSTR(estimated.toString());
+          setEstimatedFee(fee.toString());
           console.log("Estimated PLSTR fetched:", { amount, fee, effectiveAmount, ratio, estimated });
         } else {
           setEstimatedPLSTR("0");
@@ -54,6 +56,23 @@ const IssuePLSTR = ({ web3, contract, account }) => {
     };
     if (contract && web3) fetchEstimate();
   }, [contract, web3, amount]);
+
+  const handleAmountChange = (e) => {
+    const rawValue = e.target.value.replace(/,/g, "");
+    if (rawValue === "" || /^-?\d*\.?\d*$/.test(rawValue)) {
+      setAmount(rawValue);
+      if (rawValue === "" || isNaN(rawValue)) {
+        setDisplayAmount("");
+      } else {
+        setDisplayAmount(
+          new Intl.NumberFormat("en-US", {
+            maximumFractionDigits: 18,
+            minimumFractionDigits: 0,
+          }).format(rawValue)
+        );
+      }
+    }
+  };
 
   const handleIssue = async () => {
     setLoading(true);
@@ -71,6 +90,7 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       await contract.methods.issueShares(amountWei).send({ from: account });
       alert("PLSTR issued successfully!");
       setAmount("");
+      setDisplayAmount("");
       fetchBalance();
       console.log("PLSTR issued:", { amountWei });
     } catch (err) {
@@ -86,25 +106,23 @@ const IssuePLSTR = ({ web3, contract, account }) => {
       <h2 className="text-xl font-semibold mb-4 text-purple-600">Issue PLSTR</h2>
       <div className="mb-4">
         <p className="text-gray-600 mb-2">
-          Estimated Fee (0.5%): <span className="text-purple-600">{estimatedFee} vPLS</span>
+          Estimated Fee (0.5%): <span className="text-purple-600">{formatNumber(estimatedFee)} vPLS</span>
         </p>
         <p className="text-gray-600 mb-2">
-          Estimated PLSTR Receivable: <span className="text-purple-600">{estimatedPLSTR} PLSTR</span>
+          Estimated PLSTR Receivable: <span className="text-purple-600">{formatNumber(estimatedPLSTR)} PLSTR</span>
         </p>
         <input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          type="text"
+          value={displayAmount}
+          onChange={handleAmountChange}
           placeholder="Enter vPLS amount"
           className="w-full p-2 border rounded-lg"
-          min="0"
-          step="0.000000000000000001"
         />
         <p className="text-sm text-gray-600 mt-1">
           minimum <span className="text-purple-600 font-medium">1005 vPLS</span>
         </p>
         <p className="text-gray-600 mt-1">
-          User vPLS Balance: <span className="text-purple-600">{Number(vPLSBalance).toFixed(3)} vPLS</span>
+          User vPLS Balance: <span className="text-purple-600">{formatNumber(vPLSBalance)} vPLS</span>
         </p>
       </div>
       <button
