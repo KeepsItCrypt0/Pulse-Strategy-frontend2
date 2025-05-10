@@ -1,28 +1,20 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "../utils/format";
 
 const ContractInfo = ({ contract, web3 }) => {
   const [info, setInfo] = useState({ balance: "0", issuancePeriod: "0", totalIssued: "0" });
-  const [backingRatio, setBackingRatio] = useState("0");
+  const [backingRatio, setBackingRatio] = useState("1 to 1");
   const [countdown, setCountdown] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const formatNumber = (value) => {
-    try {
-      const num = Number(value);
-      if (isNaN(num)) throw new Error("Invalid number");
-      return parseFloat(num.toFixed(4)).toString(); // Max 4 decimals, remove trailing zeros
-    } catch (err) {
-      console.error("Format number error:", { value, error: err.message });
-      return "0";
-    }
-  };
 
   const fetchInfo = async () => {
     try {
       setLoading(true);
       setError("");
       if (!contract || !web3) throw new Error("Contract or Web3 not initialized");
+
+      // Fetch contract info
       const result = await contract.methods.getContractInfo().call();
       if (!result || !result.contractBalance || !result.remainingIssuancePeriod) {
         throw new Error("Invalid contract info response");
@@ -30,12 +22,14 @@ const ContractInfo = ({ contract, web3 }) => {
       const ratio = await contract.methods.getVPLSBackingRatio().call();
       const totalIssued = await contract.methods.totalSupply().call();
       const ratioDecimal = web3.utils.fromWei(ratio || "0", "ether");
+
       setInfo({
-        balance: formatNumber(web3.utils.fromWei(result.contractBalance || "0", "ether")),
+        balance: web3.utils.fromWei(result.contractBalance || "0", "ether"),
         issuancePeriod: result.remainingIssuancePeriod || "0",
-        totalIssued: formatNumber(web3.utils.fromWei(totalIssued || "0", "ether")),
+        totalIssued: web3.utils.fromWei(totalIssued || "0", "ether"),
       });
-      setBackingRatio(formatNumber(ratioDecimal));
+      setBackingRatio(formatNumber(ratioDecimal, true));
+
       console.log("Contract info fetched:", {
         balance: result.contractBalance,
         period: result.remainingIssuancePeriod,
@@ -90,10 +84,18 @@ const ContractInfo = ({ contract, web3 }) => {
         </div>
       ) : (
         <>
-          <p><strong>Contract Balance:</strong> {info.balance} vPLS</p>
-          <p><strong>Total PLSTR Issued:</strong> {info.totalIssued} PLSTR</p>
-          <p><strong>Issuance Period Countdown:</strong> {countdown}</p>
-          <p><strong>VPLS Backing Ratio:</strong> {backingRatio}</p>
+          <p>
+            <strong>Contract Balance:</strong> {formatNumber(info.balance)} vPLS
+          </p>
+          <p>
+            <strong>Total PLSTR Issued:</strong> {formatNumber(info.totalIssued)} PLSTR
+          </p>
+          <p>
+            <strong>Issuance Period Countdown:</strong> {countdown}
+          </p>
+          <p>
+            <strong>VPLS Backing Ratio:</strong> {backingRatio}
+          </p>
         </>
       )}
     </div>
