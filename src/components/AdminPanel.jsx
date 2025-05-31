@@ -1,7 +1,8 @@
+// src/components/AdminPanel.jsx
 import { useState, useEffect } from "react";
 import { formatNumber } from "../utils/format";
 
-const AdminPanel = ({ web3, contract, account }) => {
+const AdminPanel = ({ web3, contract, account, chainId }) => {
   const [mintAmount, setMintAmount] = useState("");
   const [displayMintAmount, setDisplayMintAmount] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
@@ -19,40 +20,10 @@ const AdminPanel = ({ web3, contract, account }) => {
   const fetchMintInfo = async () => {
     try {
       setError("");
-      if (!contract) {
-        throw new Error("Contract not initialized");
-      }
-
-      // Try getOwnerMintInfo for next mint timestamp
-      let nextMintTime = "0";
-      if (contract.methods.getOwnerMintInfo) {
-        try {
-          const result = await contract.methods.getOwnerMintInfo().call();
-          nextMintTime = result.nextMintTime || "0";
-          console.log("Next mint time from getOwnerMintInfo:", nextMintTime);
-        } catch (err) {
-          console.warn("getOwnerMintInfo failed:", err.message);
-        }
-      } else {
-        console.warn("getOwnerMintInfo method not available");
-      }
-
-      // Fetch remainingIssuancePeriod (duration in seconds)
+      if (!contract) throw new Error("Contract not initialized");
       const info = await contract.methods.getContractInfo().call();
-      const issuancePeriod = info.remainingIssuancePeriod || "0";
-      console.log("remainingIssuancePeriod:", issuancePeriod);
-
-      // Use remainingIssuancePeriod as the duration if non-zero
-      if (Number(issuancePeriod) > 0) {
-        setRemainingSeconds(issuancePeriod);
-        console.log("Using remainingIssuancePeriod for countdown:", issuancePeriod);
-      } else if (Number(nextMintTime) > 0) {
-        // Fallback to nextMintTime if issuancePeriod is 0
-        setRemainingSeconds(nextMintTime);
-        console.log("Using nextMintTime for countdown:", nextMintTime);
-      } else {
-        throw new Error("No valid countdown data available");
-      }
+      setRemainingSeconds(info.remainingIssuancePeriod || "0");
+      console.log("remainingIssuancePeriod:", info.remainingIssuancePeriod);
     } catch (err) {
       console.error("Failed to fetch mint info:", err);
       setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
@@ -61,23 +32,12 @@ const AdminPanel = ({ web3, contract, account }) => {
   };
 
   useEffect(() => {
-    if (contract && web3) {
-      fetchMintInfo();
-      // Retry on MetaMask errors
-      const retryInterval = setInterval(() => {
-        if (error.includes("message channel closed")) {
-          console.log("Retrying fetchMintInfo due to MetaMask error...");
-          fetchMintInfo();
-        }
-      }, 5000);
-      return () => clearInterval(retryInterval);
-    }
-  }, [contract, web3]);
+    if (contract && web3 && chainId === 1) fetchMintInfo();
+  }, [contract, web3, chainId]);
 
   useEffect(() => {
     const updateCountdown = () => {
       const seconds = Number(remainingSeconds);
-      console.log("Updating countdown with remainingSeconds:", seconds);
       if (seconds <= 0) {
         setMintCountdown("Issuance Period Ended or Data Unavailable");
         return;
@@ -86,14 +46,14 @@ const AdminPanel = ({ web3, contract, account }) => {
       const hours = Math.floor((seconds % 86400) / 3600);
       const minutes = Math.floor((seconds % 3600) / 60);
       const secs = seconds % 60;
-      const countdownText = `${days}d ${hours}h ${minutes}m ${secs}s`;
-      setMintCountdown(countdownText);
-      console.log("Countdown set to:", countdownText);
+      setMintCountdown(`${days}d ${hours}h ${minutes}m ${secs}s`);
     };
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [remainingSeconds]);
+    if (chainId === 1) {
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [remainingSeconds, chainId]);
 
   const handleNumericInputChange = (e, setRaw, setDisplay) => {
     const rawValue = e.target.value.replace(/,/g, "");
@@ -121,7 +81,7 @@ const AdminPanel = ({ web3, contract, account }) => {
       alert("PLSTR minted successfully!");
       setMintAmount("");
       setDisplayMintAmount("");
-      fetchMintInfo(); // Refresh after minting
+      fetchMintInfo();
       console.log("PLSTR minted:", { amountWei });
     } catch (err) {
       setError(`Error minting PLSTR: ${err.message || "Unknown error"}`);
@@ -187,9 +147,14 @@ const AdminPanel = ({ web3, contract, account }) => {
     }
   };
 
+  if (chainId !== 1) {
+    console.log("Admin panel not rendered:", { chainId });
+    return null;
+  }
+
   return (
-    <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
-      <h2 className="text-xl font-semibold mb-4 text-purple-600">Admin Panel</h2>
+    <div className="bg-white bg-opacity-90 rounded-lg p-6 card">
+      <h2 className="text-xl font-semibold mb-4 text-gray-600">PLSTR Admin Panel</h2>
       <p className="text-gray-600 mb-4">Next Mint In: {mintCountdown}</p>
       <div className="mb-6">
         <h3 className="text-lg font-medium mb-2">Mint PLSTR</h3>
@@ -198,12 +163,12 @@ const AdminPanel = ({ web3, contract, account }) => {
           value={displayMintAmount}
           onChange={(e) => handleNumericInputChange(e, setMintAmount, setDisplayMintAmount)}
           placeholder="Amount to mint"
-          className="w-full p-2 border rounded-lg mb-2"
+          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
         />
         <button
           onClick={handleMint}
           disabled={loading || !mintAmount}
-          className="btn-primary"
+          className="btn-primary w-full"
         >
           {loading ? "Processing..." : "Mint PLSTR"}
         </button>
@@ -215,12 +180,12 @@ const AdminPanel = ({ web3, contract, account }) => {
           value={displayDepositAmount}
           onChange={(e) => handleNumericInputChange(e, setDepositAmount, setDisplayDepositAmount)}
           placeholder="Amount to deposit"
-          className="w-full p-2 border rounded-lg mb-2"
+          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
         />
         <button
           onClick={handleDeposit}
           disabled={loading || !depositAmount}
-          className="btn-primary"
+          className="btn-primary w-full"
         >
           {loading ? "Processing..." : "Deposit vPLS"}
         </button>
@@ -232,26 +197,26 @@ const AdminPanel = ({ web3, contract, account }) => {
           value={tokenAddress}
           onChange={(e) => setTokenAddress(e.target.value)}
           placeholder="Token address"
-          className="w-full p-2 border rounded-lg mb-2"
+          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
         />
         <input
           type="text"
           value={recipientAddress}
           onChange={(e) => setRecipientAddress(e.target.value)}
           placeholder="Recipient address"
-          className="w-full p-2 border rounded-lg mb-2"
+          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
         />
         <input
           type="text"
           value={displayRecoverAmount}
           onChange={(e) => handleNumericInputChange(e, setRecoverAmount, setDisplayRecoverAmount)}
           placeholder="Amount to recover"
-          className="w-full p-2 border rounded-lg mb-2"
+          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
         />
         <button
           onClick={handleRecover}
           disabled={loading || !tokenAddress || !recipientAddress || !recoverAmount}
-          className="btn-primary"
+          className="btn-primary w-full"
         >
           {loading ? "Processing..." : "Recover Tokens"}
         </button>
@@ -263,17 +228,17 @@ const AdminPanel = ({ web3, contract, account }) => {
           value={newOwner}
           onChange={(e) => setNewOwner(e.target.value)}
           placeholder="New owner address"
-          className="w-full p-2 border rounded-lg mb-2"
+          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
         />
         <button
           onClick={handleTransferOwnership}
           disabled={loading || !newOwner}
-          className="btn-primary"
+          className="btn-primary w-full"
         >
           {loading ? "Processing..." : "Transfer Ownership"}
         </button>
       </div>
-      {error && <p className="text-red-400 mt-4">{error}</p>}
+      {error && <p className="text-red-700 mt-4">{error}</p>}
     </div>
   );
 };
