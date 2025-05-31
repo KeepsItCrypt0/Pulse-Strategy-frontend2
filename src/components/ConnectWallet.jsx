@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+// src/components/ConnectWallet.jsx
+import { useState } from "react";
 
-const ConnectWallet = ({ account, web3 }) => {
+const ConnectWallet = ({ account, web3, contractAddress, chainId }) => {
   const [connecting, setConnecting] = useState(false);
 
   const connectWallet = async () => {
@@ -16,7 +17,7 @@ const ConnectWallet = ({ account, web3 }) => {
     }
   };
 
-  const plstrAddress = "0x6c1dA678A1B615f673208e74AB3510c22117090e";
+  const explorerUrl = chainId === 1 ? "https://etherscan.io" : "https://scan.pulsechain.com";
 
   return (
     <div className="mt-4 text-center">
@@ -25,15 +26,15 @@ const ConnectWallet = ({ account, web3 }) => {
         <>
           <p className="text-gray-600">Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
           <p className="text-gray-600">
-            PLSTR Contract:{" "}
+            {chainId === 1 ? "PLSTR" : "xBOND"} Contract:{" "}
             <a
-              href={`https://etherscan.io/address/${plstrAddress}`}
+              href={`${explorerUrl}/address/${contractAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-purple-300 hover:text-red-300 truncate inline-block max-w-[200px]"
-              title={plstrAddress}
+              title={contractAddress}
             >
-              {plstrAddress.slice(0, 6)}...{plstrAddress.slice(-4)}
+              {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
             </a>
           </p>
         </>
