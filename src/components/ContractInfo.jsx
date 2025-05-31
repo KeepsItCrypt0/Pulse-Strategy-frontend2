@@ -1,53 +1,73 @@
 import { useState, useEffect } from "react";
 import { formatNumber } from "../utils/format";
 
-const ContractInfo = ({ contract, web3 }) => {
-  const [info, setInfo] = useState({ balance: "0", issuancePeriod: "0", totalIssued: "0" });
-  const [backingRatio, setBackingRatio] = useState("1 to 1");
+const ContractInfo = ({ contract, web3, chainId }) => {
+  const [info, setInfo] = useState({
+    balance: "0",
+    issuancePeriod: "0",
+    totalIssued: "0",
+    totalBurned: "0",
+    plsxBackingRatio: "0",
+  });
   const [countdown, setCountdown] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchInfo = async () => {
+    if (!contract || !web3 || !chainId) {
+      setError("Contract or Web3 not initialized");
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError("");
-      if (!contract || !web3) throw new Error("Contract or Web3 not initialized");
 
-      // Fetch contract info
-      const result = await contract.methods.getContractInfo().call();
-      if (!result || !result.contractBalance || !result.remainingIssuancePeriod) {
-        throw new Error("Invalid contract info response");
-      }
-      const ratio = await contract.methods.getVPLSBackingRatio().call();
       const totalIssued = await contract.methods.totalSupply().call();
-      const ratioDecimal = web3.utils.fromWei(ratio || "0", "ether");
-
-      setInfo({
-        balance: web3.utils.fromWei(result.contractBalance || "0", "ether"),
-        issuancePeriod: result.remainingIssuancePeriod || "0",
+      let newInfo = {
+        balance: "0",
+        issuancePeriod: "0",
         totalIssued: web3.utils.fromWei(totalIssued || "0", "ether"),
-      });
-      setBackingRatio(formatNumber(ratioDecimal, true));
+        totalBurned: "0",
+        plsxBackingRatio: "0",
+      };
 
-      console.log("Contract info fetched:", {
-        balance: result.contractBalance,
-        period: result.remainingIssuancePeriod,
-        totalIssued,
-        ratioRaw: ratio,
-        ratioDecimal,
-      });
+      if (chainId === 1) {
+        // PLSTR: Use getContractInfo
+        const { contractBalance, remainingIssuancePeriod } = await contract.methods.getContractInfo().call();
+        newInfo.balance = web3.utils.fromWei(contractBalance || "0", "ether");
+        newInfo.issuancePeriod = remainingIssuancePeriod || "0";
+      } else if (chainId === 369) {
+        // xBOND: Use getContractMetrics
+        const { contractPLSXBalance, totalBurned, remainingIssuancePeriod } = await contract.methods.getContractMetrics().call();
+        const balanceNum = Number(web3.utils.fromWei(contractPLSXBalance || "0", "ether"));
+        const issuedNum = Number(web3.utils.fromWei(totalIssued || "0", "ether"));
+        const calculatedRatio = issuedNum > 0 ? balanceNum / issuedNum : 0;
+        console.log("Raw contractPLSXBalance (Wei):", contractPLSXBalance);
+        console.log("Raw totalIssued (Wei):", totalIssued);
+        console.log("Calculated PLSX Backing Ratio:", calculatedRatio);
+        newInfo = {
+          ...newInfo,
+          balance: balanceNum.toString(),
+          issuancePeriod: remainingIssuancePeriod || "0",
+          totalBurned: web3.utils.fromWei(totalBurned || "0", "ether"),
+          plsxBackingRatio: calculatedRatio.toString(),
+        };
+      }
+
+      setInfo(newInfo);
+      console.log("Contract info fetched:", newInfo);
     } catch (error) {
       console.error("Failed to fetch contract info:", error);
-      setError(`Failed to load contract data: ${error.message || "Unknown error"}`);
+      setError(`Failed to load contract data: ${error.message || "Contract execution failed"}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (contract && web3) fetchInfo();
-  }, [contract, web3]);
+    if (contract && web3 && chainId) fetchInfo();
+  }, [contract, web3, chainId]);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -74,27 +94,39 @@ const ContractInfo = ({ contract, web3 }) => {
         <p className="text-gray-600">Loading...</p>
       ) : error ? (
         <div>
-          <p className="text-red-400">{error}</p>
+          <p className="text-red-700">{error}</p>
           <button
-            onClick={() => setTimeout(fetchInfo, 2000)}
-            className="mt-2 text-purple-300 hover:text-purple-400"
+            onClick={fetchInfo}
+            className="mt-2 text-purple-300 hover:text-red-300 transition-colors"
           >
             Retry
           </button>
         </div>
       ) : (
         <>
-          <p>
-            <strong>Contract Balance:</strong> {formatNumber(info.balance)} vPLS
+          <p className="text-gray-600">
+            <strong>{chainId === 1 ? "vPLS Balance" : "PLSX Balance"}:</strong>{" "}
+            {formatNumber(info.balance)} {chainId === 1 ? "vPLS" : "PLSX"}
           </p>
-          <p>
-            <strong>Total PLSTR Issued:</strong> {formatNumber(info.totalIssued)} PLSTR
+          <p className="text-gray-600">
+            <strong>{chainId === 1 ? "PLSTR Issued" : "xBOND Issued"}:</strong>{" "}
+            {formatNumber(info.totalIssued)} {chainId === 1 ? "PLSTR" : "xBOND"}
           </p>
-          <p>
-            <strong>Issuance Period Countdown:</strong> {countdown}
-          </p>
-          <p>
-            <strong>VPLS Backing Ratio:</strong> {backingRatio}
+          {chainId === 369 && (
+            <>
+              <p className="text-gray-600">
+                <strong>xBOND Burned:</strong> {formatNumber(info.totalBurned)} xBOND
+              </p>
+              <p className="text-gray-600">
+                <strong>PLSX Backing Ratio:</strong>{" "}
+                {Number.isInteger(Number(info.plsxBackingRatio))
+                  ? `${formatNumber(info.plsxBackingRatio)} to 1`
+                  : `${formatNumber(Number(info.plsxBackingRatio).toFixed(4))} to 1`}
+              </p>
+            </>
+          )}
+          <p className="text-gray-600">
+            <strong>Issuance Period:</strong> {countdown}
           </p>
         </>
       )}
