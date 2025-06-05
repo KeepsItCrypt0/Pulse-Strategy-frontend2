@@ -139,7 +139,7 @@ function App() {
     <div className="min-h-screen gradient-bg flex flex-col items-center p-4">
       <header className="w-full max-w-4xl bg-white bg-opacity-90 shadow-lg rounded-lg p-6 mb-6 card">
         <h1 className="text-3xl font-bold text-center text-purple-600">
-          {chainId === 1 ? "PulseStrategy" : chainId === 369 ? "xBOND" : "Connect Wallet"}
+          {chainId === 1 ? "PulseStrategy" : chainId === 369 ? "PulseStrategy" : "Connect Wallet"}
         </h1>
         <p className="text-center text-gray-600 mt-2">
           {account
