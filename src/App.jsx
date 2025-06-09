@@ -1,32 +1,37 @@
 import { useState, useEffect } from "react";
 import ConnectWallet from "./components/ConnectWallet";
 import ContractInfo from "./components/ContractInfo";
-import UserInfo from "./components/UserInfo";
 import IssueShares from "./components/IssueShares";
 import RedeemShares from "./components/RedeemShares";
-import SwapBurn from "./components/SwapBurn";
-import ClaimPLSTR from "./components/ClaimPLSTR";
 import AdminPanel from "./components/AdminPanel";
-import { getWeb3, getAccount } from "./web3";
-import { tokenAddresses, PLSTR_ABI, pBOND_ABI, xBOND_ABI, iBOND_ABI, hBOND_ABI } from "./web3";
+import UserInfo from "./components/UserInfo";
+import ControllerInfo from "./components/ControllerInfo";
+import { getWeb3, getContract, getAccount, contractAddresses, switchNetwork } from "./web3";
 import "./index.css";
 
-const App = () => {
+function App() {
   const [web3, setWeb3] = useState(null);
-  const [account, setAccount] = useState(null);
-  const [chainId, setChainId] = useState(null);
   const [contract, setContract] = useState(null);
-  const [contractSymbol, setContractSymbol] = useState("PLSTR");
+  const [account, setAccount] = useState(null);
   const [isController, setIsController] = useState(false);
+  const [chainId, setChainId] = useState(null);
+  const [networkName, setNetworkName] = useState("Unknown Network");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const contractABIs = {
-    PLSTR: PLSTR_ABI,
-    pBOND: pBOND_ABI,
-    xBOND: xBOND_ABI,
-    iBOND: iBOND_ABI,
-    hBOND: hBOND_ABI,
+  const updateNetwork = async (web3Instance) => {
+    try {
+      if (!web3Instance) throw new Error("Web3 not initialized");
+      const id = Number(await web3Instance.eth.getChainId());
+      setChainId(id);
+      setNetworkName(id === 1 ? "Ethereum" : id === 369 ? "PulseChain" : "Unknown Network");
+      console.log("Network updated:", { chainId: id, networkName });
+      return id;
+    } catch (err) {
+      console.error("Failed to update network:", err);
+      setError("Failed to detect network. Please ensure your wallet is connected.");
+      return null;
+    }
   };
 
   const initializeApp = async () => {
@@ -36,60 +41,52 @@ const App = () => {
       const web3Instance = await getWeb3();
       if (!web3Instance) {
         setChainId(null);
+        setNetworkName("Disconnected");
         setLoading(false);
-        setError("Failed to initialize Web3. Please connect your wallet.");
         return;
       }
       setWeb3(web3Instance);
 
-      const chainId = Number(await web3Instance.eth.getChainId());
-      setChainId(chainId);
-
-      if (chainId !== 369) {
-        setError("Please connect to PulseChain (chainId 369).");
-        setLoading(false);
-        return;
-      }
+      const chainId = await updateNetwork(web3Instance);
+      if (!chainId) throw new Error("Failed to detect chainId");
 
       const accounts = await getAccount(web3Instance);
       setAccount(accounts);
 
-      const contractAddress = tokenAddresses[369]?.[contractSymbol];
-      const contractABI = contractABIs[contractSymbol];
-      if (!contractAddress || !contractABI) {
-        throw new Error(`Contract address or ABI not found for ${contractSymbol} on PulseChain`);
+      const contractInstance = await getContract(web3Instance);
+      if (!contractInstance) {
+        throw new Error("Failed to initialize contract");
       }
-
-      const contractInstance = new web3Instance.eth.Contract(contractABI, contractAddress);
       setContract(contractInstance);
 
-      if (contractInstance && accounts) {
+      if (contractInstance && accounts && chainId === 1) {
         try {
           if (!contractInstance.methods.owner) {
-            throw new Error(`owner method not found in ${contractSymbol} contract`);
+            throw new Error("owner method not found in PLSTR contract");
           }
           const owner = await contractInstance.methods.owner().call();
           const isOwner = accounts?.toLowerCase() === owner?.toLowerCase();
           setIsController(isOwner);
-          console.log("Controller check:", {
+          console.log("Controller check (PLSTR):", {
             account: accounts,
             owner,
             isController: isOwner,
             chainId,
-            contractAddress,
-            contractSymbol,
+            contractAddress: contractInstance._address,
           });
         } catch (err) {
           console.error("Failed to fetch controller:", err);
           setIsController(false);
           setError(`Failed to verify controller: ${err.message || "Unknown error"}`);
         }
+      } else if (chainId === 369) {
+        setIsController(false);
+        console.log("Skipped controller check for xBOND:", { chainId, account: accounts });
       }
       console.log("App initialized:", {
         chainId,
         account: accounts,
-        contractAddress,
-        contractSymbol,
+        contractAddress: contractInstance?._address,
       });
     } catch (error) {
       console.error("App initialization failed:", error);
@@ -120,30 +117,46 @@ const App = () => {
         window.ethereum.removeAllListeners("accountsChanged");
       }
     };
-  }, [contractSymbol]);
+  }, []);
+
+  const handleNetworkChange = async (e) => {
+    if (!web3) return;
+    const targetChainId = Number(e.target.value);
+    try {
+      setLoading(true);
+      setError("");
+      await switchNetwork(web3, targetChainId);
+      await initializeApp();
+      console.log("Network switch successful:", { targetChainId });
+    } catch (err) {
+      console.error("Network switch failed:", err);
+      setError(`Failed to switch network: ${err.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen gradient-bg flex flex-col items-center p-4">
       <header className="w-full max-w-4xl bg-white bg-opacity-90 shadow-lg rounded-lg p-6 mb-6 card">
-        <h1 className="text-3xl font-bold text-center text-purple-600">PulseStar DApp</h1>
+        <h1 className="text-3xl font-bold text-center text-purple-600">
+          {chainId === 1 ? "PulseStrategy" : chainId === 369 ? "xBOND" : "Connect Wallet"}
+        </h1>
         <p className="text-center text-gray-600 mt-2">
           {account
-            ? `Interact with the ${contractSymbol} contract on PulseChain`
+            ? `Interact with the ${chainId === 1 ? "PLSTR" : "xBOND"} contract on ${networkName}`
             : `Connect your wallet to interact with the contract`}
         </p>
         <div className="mt-4">
-          <label className="text-gray-600 mr-2">Select Contract:</label>
+          <label className="text-gray-600 mr-2">Select Network:</label>
           <select
-            value={contractSymbol}
-            onChange={(e) => setContractSymbol(e.target.value)}
+            value={chainId || ""}
+            onChange={handleNetworkChange}
             className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-            disabled={!web3 || chainId !== 369}
+            disabled={!web3}
           >
-            {["PLSTR", "pBOND", "xBOND", "iBOND", "hBOND"].map((symbol) => (
-              <option key={symbol} value={symbol}>
-                {symbol}
-              </option>
-            ))}
+            <option value="1">Ethereum (PLSTR)</option>
+            <option value="369">PulseChain (xBOND)</option>
           </select>
         </div>
         {account && (
@@ -154,9 +167,8 @@ const App = () => {
         <ConnectWallet
           account={account}
           web3={web3}
-          contractAddress={tokenAddresses[369]?.[contractSymbol] || ""}
+          contractAddress={contractAddresses[chainId] || ""}
           chainId={chainId}
-          onConnect={initializeApp}
         />
       </header>
       <main className="w-full max-w-4xl space-y-6">
@@ -165,176 +177,32 @@ const App = () => {
         ) : error ? (
           <>
             <p className="text-center text-red-700">{error}</p>
-            {account && chainId === 369 && contract && (
+            {account && chainId && (
               <>
-                <ContractInfo
-                  contract={contract}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                <UserInfo
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                {contractSymbol === "PLSTR" ? (
-                  <>
-                    <IssueShares
-                      contract={contract}
-                      account={account}
-                      web3={web3}
-                      chainId={chainId}
-                      contractSymbol={contractSymbol}
-                    />
-                    <RedeemShares
-                      contract={contract}
-                      account={account}
-                      web3={web3}
-                      chainId={chainId}
-                      contractSymbol={contractSymbol}
-                    />
-                    <ClaimPLSTR
-                      contract={contract}
-                      account={account}
-                      web3={web3}
-                      chainId={chainId}
-                      contractSymbol={contractSymbol}
-                    />
-                    {isController && (
-                      <AdminPanel
-                        contract={contract}
-                        account={account}
-                        web3={web3}
-                        chainId={chainId}
-                        contractSymbol={contractSymbol}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <IssueShares
-                      contract={contract}
-                      account={account}
-                      web3={web3}
-                      chainId={chainId}
-                      contractSymbol={contractSymbol}
-                    />
-                    <RedeemShares
-                      contract={contract}
-                      account={account}
-                      web3={web3}
-                      chainId={chainId}
-                      contractSymbol={contractSymbol}
-                    />
-                    <SwapBurn
-                      contract={contract}
-                      account={account}
-                      web3={web3}
-                      chainId={chainId}
-                      contractSymbol={contractSymbol}
-                    />
-                    {isController && (
-                      <AdminPanel
-                        contract={contract}
-                        account={account}
-                        web3={web3}
-                        chainId={chainId}
-                        contractSymbol={contractSymbol}
-                      />
-                    )}
-                  </>
+                <ContractInfo contract={contract} web3={web3} chainId={chainId} />
+                {chainId === 369 && <ControllerInfo contract={contract} web3={web3} chainId={chainId} />}
+                <UserInfo contract={contract} account={account} web3={web3} chainId={chainId} />
+                <IssueShares web3={web3} contract={contract} account={account} chainId={chainId} />
+                <RedeemShares contract={contract} account={account} web3={web3} chainId={chainId} />
+                {chainId === 1 && isController && (
+                  <AdminPanel web3={web3} contract={contract} account={account} chainId={chainId} />
                 )}
               </>
             )}
           </>
-        ) : account && chainId === 369 && contract ? (
+        ) : account && chainId ? (
           <>
-            <ContractInfo
-              contract={contract}
-              web3={web3}
-              chainId={chainId}
-              contractSymbol={contractSymbol}
-            />
-            <UserInfo
-              contract={contract}
-              account={account}
-              web3={web3}
-              chainId={chainId}
-              contractSymbol={contractSymbol}
-            />
-            {contractSymbol === "PLSTR" ? (
-              <>
-                <IssueShares
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                <RedeemShares
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                <ClaimPLSTR
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                {isController && (
-                  <AdminPanel
-                    contract={contract}
-                    account={account}
-                    web3={web3}
-                    chainId={chainId}
-                    contractSymbol={contractSymbol}
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                <IssueShares
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                <RedeemShares
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                <SwapBurn
-                  contract={contract}
-                  account={account}
-                  web3={web3}
-                  chainId={chainId}
-                  contractSymbol={contractSymbol}
-                />
-                {isController && (
-                  <AdminPanel
-                    contract={contract}
-                    account={account}
-                    web3={web3}
-                    chainId={chainId}
-                    contractSymbol={contractSymbol}
-                  />
-                )}
-              </>
+            <ContractInfo contract={contract} web3={web3} chainId={chainId} />
+            {chainId === 369 && <ControllerInfo contract={contract} web3={web3} chainId={chainId} />}
+            <UserInfo contract={contract} account={account} web3={web3} chainId={chainId} />
+            <IssueShares web3={web3} contract={contract} account={account} chainId={chainId} />
+            <RedeemShares contract={contract} account={account} web3={web3} chainId={chainId} />
+            {chainId === 1 && isController && (
+              <AdminPanel web3={web3} contract={contract} account={account} chainId={chainId} />
             )}
           </>
         ) : (
-          <p className="text-center text-white">Please connect your wallet to PulseChain to interact with the contract.</p>
+          <p className="text-center text-white">Please connect your wallet to interact with the contract.</p>
         )}
       </main>
       <footer className="mt-16 w-full text-center text-gray-600 text-xs">
@@ -358,15 +226,15 @@ const App = () => {
           </a>
         </div>
         <p className="max-w-lg mx-auto">
-          <strong>Disclaimer:</strong> PulseStar is a decentralized finance (DeFi) platform.
-          Investing in DeFi involves significant risks, including the potential loss of all invested funds.
-          Cryptocurrencies and smart contracts are volatile and may be subject to hacks, bugs, or market fluctuations.
-          Always conduct your own research and consult with a financial advisor before participating.
-          By using this platform, you acknowledge these risks and agree that PulseStar and its developers are not liable for any losses.
+          <strong>Disclaimer:</strong> PulseStrategy is a decentralized finance (DeFi) platform. 
+          Investing in DeFi involves significant risks, including the potential loss of all invested funds. 
+          Cryptocurrencies and smart contracts are volatile and may be subject to hacks, bugs, or market fluctuations. 
+          Always conduct your own research and consult with a financial advisor before participating. 
+          By using this platform, you acknowledge these risks and agree that PulseStrategy and its developers are not liable for any losses.
         </p>
       </footer>
     </div>
   );
-};
+}
 
 export default App;
