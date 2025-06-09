@@ -5,7 +5,6 @@ import IssueShares from "./components/IssueShares";
 import RedeemShares from "./components/RedeemShares";
 import AdminPanel from "./components/AdminPanel";
 import UserInfo from "./components/UserInfo";
-import ControllerInfo from "./components/ControllerInfo";
 import { getWeb3, getContract, getAccount, contractAddresses, switchNetwork } from "./web3";
 import "./index.css";
 
@@ -140,7 +139,7 @@ function App() {
     <div className="min-h-screen gradient-bg flex flex-col items-center p-4">
       <header className="w-full max-w-4xl bg-white bg-opacity-90 shadow-lg rounded-lg p-6 mb-6 card">
         <h1 className="text-3xl font-bold text-center text-purple-600">
-          {chainId === 1 ? "PulseStrategy" : chainId === 369 ? "xBOND" : "Connect Wallet"}
+          {chainId === 1 ? "PulseStrategy" : chainId === 369 ? "PulseStrategy" : "Connect Wallet"}
         </h1>
         <p className="text-center text-gray-600 mt-2">
           {account
@@ -180,7 +179,6 @@ function App() {
             {account && chainId && (
               <>
                 <ContractInfo contract={contract} web3={web3} chainId={chainId} />
-                {chainId === 369 && <ControllerInfo contract={contract} web3={web3} chainId={chainId} />}
                 <UserInfo contract={contract} account={account} web3={web3} chainId={chainId} />
                 <IssueShares web3={web3} contract={contract} account={account} chainId={chainId} />
                 <RedeemShares contract={contract} account={account} web3={web3} chainId={chainId} />
@@ -193,7 +191,6 @@ function App() {
         ) : account && chainId ? (
           <>
             <ContractInfo contract={contract} web3={web3} chainId={chainId} />
-            {chainId === 369 && <ControllerInfo contract={contract} web3={web3} chainId={chainId} />}
             <UserInfo contract={contract} account={account} web3={web3} chainId={chainId} />
             <IssueShares web3={web3} contract={contract} account={account} chainId={chainId} />
             <RedeemShares contract={contract} account={account} web3={web3} chainId={chainId} />
