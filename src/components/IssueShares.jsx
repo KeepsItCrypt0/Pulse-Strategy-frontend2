@@ -1,173 +1,165 @@
 import { useState, useEffect } from "react";
-import { getTokenContract } from "../web3";
 import { formatNumber } from "../utils/format";
+import { contractAddresses, tokenAddresses, plsxABI, incABI } from "../web3";
 
-const IssueShares = ({ web3, contract, account, chainId }) => {
+const IssueShares = ({ web3, contract, account, chainId, contractSymbol, onTransactionSuccess }) => {
   const [amount, setAmount] = useState("");
   const [displayAmount, setDisplayAmount] = useState("");
   const [tokenBalance, setTokenBalance] = useState("0");
-  const [estimatedShares, setEstimatedShares] = useState("0");
-  const [estimatedFee, setEstimatedFee] = useState("0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const MIN_ISSUE_AMOUNT = 10;
 
-  const fetchBalance = async () => {
-    if (!web3 || !account || !chainId) {
-      setError("Please ensure your wallet is connected and network is selected.");
-      return;
-    }
+  // Null checks for props
+  if (!web3 || !contract || !account || !chainId || !contractSymbol) {
+    console.warn("IssueShares: Missing required props", { web3, contract, account, chainId, contractSymbol });
+    return <div className="text-gray-600 p-6">Loading contract data...</div>;
+  }
+
+  const tokenConfig = {
+    xBond: [{ symbol: "PLSX", address: tokenAddresses[369].PLSX, decimals: 18, abi: plsxABI }],
+    iBond: [{ symbol: "INC", address: tokenAddresses[369].INC, decimals: 18, abi: incABI }],
+  };
+
+  const tokens = tokenConfig[contractSymbol] || [];
+  const defaultToken = tokens[0]?.symbol || "";
+
+  if (!tokens.length || contractSymbol === "PLStr") {
+    console.error("IssueShares: Invalid token config or PLStr not supported", { contractSymbol });
+    return <div className="text-red-600 p-6">Error: Invalid contract configuration</div>;
+  }
+
+  const fromUnits = (balance) => {
     try {
-      setError("");
-      const tokenContract = await getTokenContract(web3);
-      if (!tokenContract) throw new Error("Failed to initialize token contract");
-      const balance = await tokenContract.methods.balanceOf(account).call();
-      setTokenBalance(web3.utils.fromWei(balance, "ether"));
-      console.log(`${chainId === 1 ? "vPLS" : "PLSX"} balance fetched:`, { balance });
+      if (!balance || balance === "0") return "0";
+      return web3.utils.fromWei(balance.toString(), "ether");
     } catch (err) {
-      console.error(`Failed to fetch ${chainId === 1 ? "vPLS" : "PLSX"} balance:`, err);
-      setError(`Failed to load ${chainId === 1 ? "vPLS" : "PLSX"} balance: ${err.message || "Unknown error"}`);
+      console.error("Error converting balance:", { balance, error: err.message });
+      return "0";
     }
   };
 
-  useEffect(() => {
-    if (web3 && account && chainId) fetchBalance();
-  }, [web3, account, chainId]);
-
-  useEffect(() => {
-    let timeout;
-    const fetchEstimate = async () => {
-      try {
-        setError("");
-        if (amount && Number(amount) > 0 && contract && web3) {
-          const amountNum = Number(amount);
-          if (amountNum < MIN_ISSUE_AMOUNT) {
-            throw new Error(`Amount must be at least ${MIN_ISSUE_AMOUNT} ${chainId === 1 ? "vPLS" : "PLSX"}`);
-          }
-          const amountWei = web3.utils.toWei(amount, "ether");
-          let shares, fee;
-          if (chainId === 1) {
-            // PLSTR: Use calculateSharesReceived with 0.5% fee
-            const result = await contract.methods.calculateSharesReceived(amountWei).call({ from: account });
-            shares = (typeof result === "object" ? result.shares || result[0] : result).toString();
-            fee = web3.utils.toWei((amountNum * 0.005).toString(), "ether"); // 0.5% fee
-          } else {
-            // xBOND: Calculate 5% fee and 1:1 shares after fee
-            fee = web3.utils.toWei((amountNum * 0.05).toString(), "ether"); // 5% fee
-            shares = web3.utils.toWei((amountNum * 0.95).toString(), "ether"); // 95% of input as shares (1:1)
-            // Log calculateSharesReceived for debugging
-            try {
-              const result = await contract.methods.calculateSharesReceived(amountWei).call({ from: account });
-              console.log("xBOND calculateSharesReceived result:", result);
-            } catch (err) {
-              console.error("Failed to fetch xBOND calculateSharesReceived:", err);
-            }
-          }
-          setEstimatedShares(web3.utils.fromWei(shares, "ether"));
-          setEstimatedFee(web3.utils.fromWei(fee, "ether"));
-          console.log("Estimated shares fetched:", { amount, shares, fee, chainId });
-        } else {
-          setEstimatedShares("0");
-          setEstimatedFee("0");
-        }
-      } catch (err) {
-        console.error("Failed to fetch estimated shares:", err);
-        setError(`Failed to fetch estimated shares: ${err.message || "Contract execution failed"}`);
-      }
-    };
-
-    if (contract && web3 && chainId && account) {
-      timeout = setTimeout(fetchEstimate, 500);
+  const toTokenUnits = (amount, decimals) => {
+    try {
+      if (!amount || Number(amount) <= 0) return "0";
+      return web3.utils.toWei(amount, "ether");
+    } catch (err) {
+      console.error("Error converting amount to token units:", { amount, decimals, err });
+      return "0";
     }
-    return () => clearTimeout(timeout);
-  }, [contract, web3, amount, chainId, account]);
+  };
+
+  const formatInputValue = (value) => {
+    if (!value) return "";
+    const [intPart, decPart] = value.replace(/,/g, "").split(".");
+    if (intPart === undefined || intPart === "") return decPart !== undefined ? `.${decPart}` : "";
+    const formattedInt = new Intl.NumberFormat("en-US").format(Number(intPart));
+    return decPart !== undefined ? `${formattedInt}.${decPart}` : (intPart ? formattedInt : "");
+  };
 
   const handleAmountChange = (e) => {
-    const rawValue = e.target.value.replace(/[^0-9.]/g, "");
+    let rawValue = e.target.value.replace(/,/g, "");
     if (rawValue === "" || /^[0-9]*\.?[0-9]*$/.test(rawValue)) {
-      const numValue = rawValue === "" ? 0 : Number(rawValue);
       setAmount(rawValue);
-      setDisplayAmount(
-        rawValue === ""
-          ? ""
-          : new Intl.NumberFormat("en-US", {
-              maximumFractionDigits: 18,
-              minimumFractionDigits: 0,
-            }).format(numValue)
-      );
-      if (numValue >= MIN_ISSUE_AMOUNT) {
-        setError("");
-      }
+      setDisplayAmount(formatInputValue(rawValue));
     }
   };
 
-  const handleIssue = async () => {
+  const fetchTokenBalance = async () => {
+    try {
+      const token = tokens[0];
+      const tokenContract = new web3.eth.Contract(token.abi, token.address);
+      const balance = await tokenContract.methods.balanceOf(account).call();
+      setTokenBalance(fromUnits(balance));
+    } catch (err) {
+      setError(`Failed to load ${defaultToken} balance: ${err.message}`);
+      console.error("Fetch token balance error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (web3 && contract && account && chainId === 369) fetchTokenBalance();
+  }, [web3, contract, account, chainId, contractSymbol]);
+
+  if (chainId !== 369) {
+    console.log("IssueShares: Invalid chainId", { chainId });
+    return <div className="text-gray-600 p-6">Please connect to PulseChain</div>;
+  }
+
+  const handleIssueShares = async () => {
+    if (!amount || Number(amount) <= 0 || Number(amount) > Number(tokenBalance)) {
+      setError(`Please enter a valid amount within your ${defaultToken} balance`);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const amountNum = Number(amount);
-      if (amountNum < MIN_ISSUE_AMOUNT) {
-        throw new Error(`Amount must be at least ${MIN_ISSUE_AMOUNT} ${chainId === 1 ? "vPLS" : "PLSX"}`);
+      const token = tokens[0];
+      const tokenAmount = toTokenUnits(amount, token.decimals);
+      if (tokenAmount === "0") throw new Error("Invalid token amount");
+      const tokenContract = new web3.eth.Contract(token.abi, token.address);
+      const allowance = await tokenContract.methods.allowance(account, contractAddresses[369][contractSymbol]).call();
+      if (BigInt(allowance) < BigInt(tokenAmount)) {
+        await tokenContract.methods.approve(contractAddresses[369][contractSymbol], tokenAmount).send({ from: account });
       }
-      const tokenContract = await getTokenContract(web3);
-      if (!tokenContract) throw new Error("Failed to initialize token contract");
-      const amountWei = web3.utils.toWei(amount, "ether");
-      await tokenContract.methods
-        .approve(contract._address, amountWei)
-        .send({ from: account });
-      await contract.methods.issueShares(amountWei).send({ from: account });
-      alert(`${chainId === 1 ? "PLSTR" : "xBOND"} issued successfully!`);
+      await contract.methods.issueShares(tokenAmount).send({ from: account });
+      alert(`Successfully issued ${contractSymbol} shares with ${amount} ${token.symbol}!`);
       setAmount("");
       setDisplayAmount("");
-      fetchBalance();
-      console.log(`${chainId === 1 ? "PLSTR" : "xBOND"} issued:`, { amountWei });
+      fetchTokenBalance();
+      if (onTransactionSuccess) {
+        onTransactionSuccess();
+      }
     } catch (err) {
-      setError(`Error issuing ${chainId === 1 ? "PLSTR" : "xBOND"}: ${err.message || "Unknown error"}`);
+      setError(`Error issuing shares: ${err.message}`);
       console.error("Issue shares error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  const estimatedShares = amount ? (Number(amount) * 0.995).toFixed(6) : "0";
+  const feeAmount = amount ? (Number(amount) * 0.005).toFixed(6) : "0";
+
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
-      <h2 className="text-xl font-semibold mb-4 text-purple-600">
-        Issue {chainId === 1 ? "PLSTR" : "xBOND"}
-      </h2>
+      <h2 className="text-xl font-semibold mb-4 text-[#4B0082]">Issue {contractSymbol}</h2>
+      <p className="text-gray-600 mb-2">
+        {defaultToken} Balance: <span className="text-[#4B0082]">{formatNumber(tokenBalance)} {defaultToken}</span>
+      </p>
       <div className="mb-4">
-        <p className="text-gray-600 mb-2">
-          Estimated Fee: <span className="text-purple-600">{formatNumber(estimatedFee)} {chainId === 1 ? "vPLS" : "PLSX"}</span>
-          {chainId === 1 ? (
-            <span className="text-sm text-gray-500 ml-2">(0.5% fee applied)</span>
-          ) : (
-            <span className="text-sm text-gray-500 ml-2">(5% fee applied)</span>
-          )}
-        </p>
-        <p className="text-gray-600 mb-2">
-          Estimated {chainId === 1 ? "PLSTR" : "xBOND"} Receivable: <span className="text-purple-600">{formatNumber(estimatedShares)} {chainId === 1 ? "PLSTR" : "xBOND"}</span>
-        </p>
+        <label className="text-gray-600">Token</label>
+        <input
+          type="text"
+          value={defaultToken}
+          readOnly
+          className="w-full p-2 border rounded-lg bg-gray-100"
+        />
+      </div>
+      <div className="mb-4">
+        <label className="text-gray-600">Amount ({defaultToken})</label>
         <input
           type="text"
           value={displayAmount}
           onChange={handleAmountChange}
-          placeholder={`Enter ${chainId === 1 ? "vPLS" : "PLSX"} amount`}
+          placeholder={`Enter ${defaultToken} amount`}
           className="w-full p-2 border rounded-lg"
+          disabled={loading}
         />
-        <p className="text-sm text-gray-600 mt-1">
-          Minimum <span className="text-purple-600 font-medium">{MIN_ISSUE_AMOUNT} {chainId === 1 ? "vPLS" : "PLSX"}</span>
+        <p className="text-gray-600 mt-2">
+          Estimated {contractSymbol} (after 0.5% fee): <span className="text-[#4B0082]">{formatNumber(estimatedShares)}</span>
         </p>
         <p className="text-gray-600 mt-1">
-          User {chainId === 1 ? "vPLS" : "PLSX"} Balance: <span className="text-purple-600">{formatNumber(tokenBalance)} {chainId === 1 ? "vPLS" : "PLSX"}</span>
+          Fee (0.5%): <span className="text-[#4B0082]">{formatNumber(feeAmount)} {defaultToken}</span>
         </p>
       </div>
       <button
-        onClick={handleIssue}
-        disabled={loading || !amount || Number(amount) < MIN_ISSUE_AMOUNT}
+        onClick={handleIssueShares}
+        disabled={loading || !amount || Number(amount) <= 0}
         className="btn-primary"
       >
-        {loading ? "Processing..." : `Issue ${chainId === 1 ? "PLSTR" : "xBOND"}`}
+        {loading ? "Processing..." : "Issue"}
       </button>
-      {error && <p className="text-red-600 mt-4">{error}</p>}
+      {error && <p className="text-[#8B0000] mt-2">{error}</p>}
     </div>
   );
 };
