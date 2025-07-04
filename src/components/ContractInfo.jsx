@@ -14,6 +14,7 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
       vPlsBackingRatio: "0",
       plsxBackingRatio: "0",
       incBackingRatio: "0",
+      totalClaimablePLStr: "0", // Added for PLStr
     },
     issuanceStatus: { isActive: false, timeRemaining: 0 },
   });
@@ -64,7 +65,8 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
               incBalance: "0",
               totalMinted: fromUnits(metrics[2]),
               totalBurned: fromUnits(metrics[3]),
-              vPlsBackingRatio: fromUnits(metrics[4]),
+              vPlsBackingRatio: Number(fromUnits(metrics[4])).toFixed(4), // Format to match 1.4988
+              totalClaimablePLStr: fromUnits(metrics[5]), // Include totalClaimablePLStr
             }
           : {
               vPlsBalance: "0",
@@ -75,6 +77,7 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
               plsxBackingRatio: contractSymbol === "xBond" ? fromUnits(metrics[4]) : "0",
               incBackingRatio: contractSymbol === "iBond" ? fromUnits(metrics[4]) : "0",
               vPlsBackingRatio: "0",
+              totalClaimablePLStr: "0",
             },
         issuanceStatus: isPLStr
           ? { isActive: false, timeRemaining: 0 }
@@ -118,9 +121,14 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
         <>
           <h3 className="text-lg font-medium mt-4">Contract Details</h3>
           {contractSymbol === "PLStr" && (
-            <p className="text-gray-600">
-              vPLS Balance: <span className="text-[#4B0082]">{formatNumber(contractData.metrics.vPlsBalance)} vPLS</span>
-            </p>
+            <>
+              <p className="text-gray-600">
+                vPLS Balance: <span className="text-[#4B0082]">{formatNumber(contractData.metrics.vPlsBalance)} vPLS</span>
+              </p>
+              <p className="text-gray-600">
+                Total Claimable PLStr: <span className="text-[#4B0082]">{formatNumber(contractData.metrics.totalClaimablePLStr)} PLStr</span>
+              </p>
+            </>
           )}
           {contractSymbol !== "PLStr" && (
             <p className="text-gray-600">
