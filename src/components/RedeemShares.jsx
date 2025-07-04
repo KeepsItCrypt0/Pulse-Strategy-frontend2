@@ -63,10 +63,10 @@ const RedeemShares = ({ contract, account, web3, chainId, contractSymbol, onTran
 
       if (contractSymbol === "PLStr") {
         const metrics = await contract.methods.getBasicMetrics().call();
-        const { contractTotalSupply, vPlsBalance } = Array.isArray(metrics)
-          ? { contractTotalSupply: metrics[0], vPlsBalance: metrics[1] }
+        const { contractTotalSupply, vPlsBalance, totalClaimablePLStr } = Array.isArray(metrics)
+          ? { contractTotalSupply: metrics[0], vPlsBalance: metrics[1], totalClaimablePLStr: metrics[5] }
           : metrics;
-        totalSupply = contractTotalSupply;
+        totalSupply = BigInt(contractTotalSupply) + BigInt(totalClaimablePLStr); // Include unclaimed PLStr
         backingTokenBalance = vPlsBalance;
       } else if (contractSymbol === "xBond") {
         try {
