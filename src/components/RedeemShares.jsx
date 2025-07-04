@@ -1,119 +1,189 @@
 import { useState, useEffect } from "react";
+import { contractAddresses, tokenAddresses, vPLS_ABI, PLStr_ABI, plsxABI, incABI, xBond_ABI, iBond_ABI } from "../web3";
 import { formatNumber } from "../utils/format";
 
-const RedeemShares = ({ contract, account, web3, chainId }) => {
-  const [amount, setAmount] = useState("");
-  const [displayAmount, setDisplayAmount] = useState("");
-  const [shareBalance, setShareBalance] = useState("0");
-  const [estimatedToken, setEstimatedToken] = useState("0");
+const RedeemShares = ({ contract, account, web3, chainId, contractSymbol, onTransactionSuccess }) => {
+  const [redeemAmount, setRedeemAmount] = useState("");
+  const [displayRedeemAmount, setDisplayRedeemAmount] = useState("");
+  const [redeemableValue, setRedeemableValue] = useState("0");
+  const [balance, setBalance] = useState("0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchBalance = async () => {
+  const tokens = {
+    PLStr: { symbol: "vPLS", address: tokenAddresses[369].vPLS, redeemMethod: "redeemPLStr" },
+    xBond: { symbol: "PLSX", address: tokenAddresses[369].PLSX, redeemMethod: "redeemShares" },
+    iBond: { symbol: "INC", address: tokenAddresses[369].INC, redeemMethod: "redeemShares" },
+  };
+
+  const fromUnits = (balance) => {
     try {
-      setError("");
-      const balance = await contract.methods.balanceOf(account).call();
-      setShareBalance(web3.utils.fromWei(balance, "ether"));
-      console.log(`${chainId === 1 ? "PLSTR" : "xBOND"} balance fetched:`, { balance });
+      if (!balance || balance === "0") return "0";
+      return web3.utils.fromWei(balance.toString(), "ether");
     } catch (err) {
-      console.error(`Failed to fetch ${chainId === 1 ? "PLSTR" : "xBOND"} balance:`, err);
-      setError(`Failed to load ${chainId === 1 ? "PLSTR" : "xBOND"} balance: ${err.message || "Unknown error"}`);
+      console.error("Error converting balance:", { balance, error: err.message });
+      return "0";
     }
   };
 
-  useEffect(() => {
-    if (contract && account && web3 && chainId) fetchBalance();
-  }, [contract, account, web3, chainId]);
+  const toTokenUnits = (amount) => {
+    try {
+      if (!amount || Number(amount) <= 0) return "0";
+      return web3.utils.toWei(amount, "ether");
+    } catch (err) {
+      console.error("Error converting amount to token units:", { amount, error: err.message });
+      return "0";
+    }
+  };
 
-  useEffect(() => {
-    const fetchEstimate = async () => {
-      try {
-        if (amount && Number(amount) > 0 && contract && web3 && account) {
-          const amountWei = web3.utils.toWei(amount, "ether");
-          let redeemable;
-          if (chainId === 1) {
-            const normalizedAccount = web3.utils.toChecksumAddress(account);
-            redeemable = await contract.methods
-              .getRedeemableStakedPLS(normalizedAccount, amountWei)
-              .call({ from: normalizedAccount });
-          } else {
-            redeemable = await contract.methods
-              .getRedeemablePLSX(account, amountWei)
-              .call({ from: account });
-          }
-          setEstimatedToken(web3.utils.fromWei(redeemable || "0", "ether"));
-          console.log(`Estimated ${chainId === 1 ? "vPLS" : "PLSX"} fetched:`, { amount, redeemable });
-        } else {
-          setEstimatedToken("0");
-        }
-      } catch (err) {
-        console.error(`Failed to fetch estimated ${chainId === 1 ? "vPLS" : "PLSX"}:`, err);
-        setError(`Failed to fetch estimated ${chainId === 1 ? "vPLS" : "PLSX"}: ${err.message || "Contract execution failed"}`);
-      }
-    };
-    if (contract && account && web3 && chainId) fetchEstimate();
-  }, [contract, account, amount, web3, chainId]);
+  const formatInputValue = (value) => {
+    if (!value) return "";
+    const num = Number(value.replace(/,/g, ""));
+    if (isNaN(num)) return value;
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 18,
+      minimumFractionDigits: 0,
+    }).format(num);
+  };
 
-  const handleAmountChange = (e) => {
+  const handleRedeemAmountChange = (e) => {
     const rawValue = e.target.value.replace(/,/g, "");
     if (rawValue === "" || /^[0-9]*\.?[0-9]*$/.test(rawValue)) {
-      setAmount(rawValue);
-      setDisplayAmount(
-        rawValue === ""
-          ? ""
-          : new Intl.NumberFormat("en-US", {
-              maximumFractionDigits: 18,
-              minimumFractionDigits: 0,
-            }).format(Number(rawValue))
-      );
+      setRedeemAmount(rawValue);
+      setDisplayRedeemAmount(formatInputValue(rawValue));
     }
   };
 
+  const fetchUserData = async () => {
+    if (!web3 || !contract || !account || chainId !== 369) return;
+    try {
+      const balance = await contract.methods.balanceOf(account).call();
+      let backingTokenBalance, totalSupply;
+
+      if (contractSymbol === "PLStr") {
+        const metrics = await contract.methods.getBasicMetrics().call();
+        const { contractTotalSupply, vPlsBalance } = Array.isArray(metrics)
+          ? { contractTotalSupply: metrics[0], vPlsBalance: metrics[1] }
+          : metrics;
+        totalSupply = contractTotalSupply;
+        backingTokenBalance = vPlsBalance;
+      } else if (contractSymbol === "xBond") {
+        try {
+          const metrics = await contract.methods.getContractMetrics().call();
+          const { contractTotalSupply, plsxBalance } = Array.isArray(metrics)
+            ? { contractTotalSupply: metrics[0], plsxBalance: metrics[1] }
+            : metrics;
+          totalSupply = contractTotalSupply;
+          backingTokenBalance = plsxBalance;
+        } catch (err) {
+          console.warn("getContractMetrics failed for xBond, using balanceOf:", err.message);
+          const plsxContract = new web3.eth.Contract(plsxABI, tokenAddresses[369].PLSX);
+          backingTokenBalance = await plsxContract.methods.balanceOf(contractAddresses[369].xBond).call();
+          totalSupply = await contract.methods.totalSupply().call();
+        }
+      } else if (contractSymbol === "iBond") {
+        try {
+          const metrics = await contract.methods.getContractMetrics().call();
+          const { contractTotalSupply, incBalance } = Array.isArray(metrics)
+            ? { contractTotalSupply: metrics[0], incBalance: metrics[1] }
+            : metrics;
+          totalSupply = contractTotalSupply;
+          backingTokenBalance = incBalance;
+        } catch (err) {
+          console.warn("getContractMetrics failed for iBond, using balanceOf:", err.message);
+          const incContract = new web3.eth.Contract(incABI, tokenAddresses[369].INC);
+          backingTokenBalance = await incContract.methods.balanceOf(contractAddresses[369].iBond).call();
+          totalSupply = await contract.methods.totalSupply().call();
+        }
+      }
+
+      let redeemable = "0";
+      if (Number(totalSupply) > 0) {
+        redeemable = (BigInt(balance) * BigInt(backingTokenBalance)) / BigInt(totalSupply);
+      }
+
+      setBalance(fromUnits(balance));
+      setRedeemableValue(fromUnits(redeemable));
+    } catch (err) {
+      console.error("Error fetching redeem data:", {
+        error: err.message,
+        contractSymbol,
+        contractAddress: contract.options.address,
+      });
+      setError("Failed to load redeem data");
+    }
+  };
+
+  useEffect(() => {
+    if (web3 && contract && account && chainId === 369) {
+      fetchUserData();
+    }
+  }, [web3, contract, account, chainId, contractSymbol]);
+
   const handleRedeem = async () => {
+    if (!redeemAmount || Number(redeemAmount) <= 0 || Number(redeemAmount) > Number(balance)) {
+      setError(`Please enter a valid ${contractSymbol} amount within your balance`);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const amountWei = web3.utils.toWei(amount, "ether");
-      await contract.methods.redeemShares(amountWei).send({ from: account });
-      alert(`${chainId === 1 ? "PLSTR" : "xBOND"} redeemed successfully!`);
-      setAmount("");
-      setDisplayAmount("");
-      fetchBalance();
-      console.log(`${chainId === 1 ? "PLSTR" : "xBOND"} redeemed:`, { amountWei });
+      const tokenAmount = toTokenUnits(redeemAmount);
+      if (tokenAmount === "0") throw new Error("Invalid token amount");
+      await contract.methods[tokens[contractSymbol].redeemMethod](tokenAmount).send({ from: account });
+      alert(`Successfully redeemed ${redeemAmount} ${contractSymbol} for ${tokens[contractSymbol].symbol}!`);
+      setRedeemAmount("");
+      setDisplayRedeemAmount("");
+      await fetchUserData();
+      if (onTransactionSuccess) {
+        onTransactionSuccess();
+      }
     } catch (err) {
-      setError(`Error redeeming ${chainId === 1 ? "PLSTR" : "xBOND"}: ${err.message || "Unknown error"}`);
-      console.error("Redeem shares error:", err);
+      setError(`Error redeeming ${contractSymbol}: ${err.message}`);
+      console.error("Redeem error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  if (chainId !== 369) {
+    return (
+      <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
+        <p className="text-[#8B0000]">Please connect to PulseChain (chain ID 369)</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
-      <h2 className="text-xl font-semibold mb-4 text-purple-600">
-        Redeem {chainId === 1 ? "PLSTR" : "xBOND"}
+      <h2 className="text-xl font-semibold mb-4 text-[#4B0082]">
+        Redeem {contractSymbol} for {tokens[contractSymbol]?.symbol}
       </h2>
       <p className="text-gray-600 mb-2">
-        Your {chainId === 1 ? "PLSTR" : "xBOND"} Balance: {formatNumber(shareBalance)} {chainId === 1 ? "PLSTR" : "xBOND"}
+        {contractSymbol} Balance: <span className="text-[#4B0082]">{formatNumber(balance)} {contractSymbol}</span>
       </p>
       <p className="text-gray-600 mb-2">
-        Estimated {chainId === 1 ? "vPLS" : "PLSX"} Receivable: {formatNumber(estimatedToken)} {chainId === 1 ? "vPLS" : "PLSX"}
+        Redeemable Value: <span className="text-[#4B0082]">{formatNumber(redeemableValue)} {tokens[contractSymbol]?.symbol}</span>
       </p>
-      <input
-        type="text"
-        value={displayAmount}
-        onChange={handleAmountChange}
-        placeholder={`Enter ${chainId === 1 ? "PLSTR" : "xBOND"} amount`}
-        className="w-full p-2 border rounded-lg mb-4"
-      />
+      <div className="mb-4">
+        <label className="text-gray-600">Amount ({contractSymbol})</label>
+        <input
+          type="text"
+          value={displayRedeemAmount}
+          onChange={handleRedeemAmountChange}
+          placeholder={`Enter ${contractSymbol} amount`}
+          className="w-full p-2 border rounded-lg"
+          disabled={loading}
+        />
+      </div>
       <button
         onClick={handleRedeem}
-        disabled={loading || !amount || Number(amount) <= 0}
-        className="btn-primary"
+        disabled={loading || !redeemAmount || Number(redeemAmount) <= 0}
+        className="btn-primary mb-4"
       >
-        {loading ? "Processing..." : `Redeem ${chainId === 1 ? "PLSTR" : "xBOND"}`}
+        {loading ? "Processing..." : `Redeem ${contractSymbol}`}
       </button>
-      {error && <p className="text-red-700 mt-2">{error}</p>}
+      {error && <p className="text-[#8B0000] mt-2">{error}</p>}
     </div>
   );
 };
