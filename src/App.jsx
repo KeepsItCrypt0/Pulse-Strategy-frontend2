@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ConnectWallet from "./components/ConnectWallet";
 import ContractInfo from "./components/ContractInfo";
 import UserInfo from "./components/UserInfo";
 import IssueShares from "./components/IssueShares";
 import RedeemShares from "./components/RedeemShares";
-import ClaimPLStr from "./components/ClaimPLStr"; // Correct import
+import ClaimPLStr from "./components/ClaimPLStr";
 import AdminPanel from "./components/AdminPanel";
 import WeightUpdate from "./components/WeightUpdate";
 import FrontPage from "./components/FrontPage";
-import { getWeb3, getAccount, getContract, contractAddresses } from "./web3";
+import { getWeb3, getAccount, contractAddresses } from "./web3";
 import { PLStr_ABI, xBond_ABI, iBond_ABI } from "./web3";
 import "./index.css";
 
@@ -25,6 +25,8 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showFrontPage, setShowFrontPage] = useState(true);
+  const mountedRef = useRef(true);
+  const lastInitRef = useRef(0); // Timestamp for last initialization
 
   const contractABIs = {
     PLStr: PLStr_ABI,
@@ -38,74 +40,93 @@ const App = () => {
     localStorage.setItem("contractSymbol", contractSymbol);
   }, [contractSymbol]);
 
-  const initializeApp = async () => {
+  const initializeApp = useCallback(async (newContractSymbol = contractSymbol) => {
+    const now = Date.now();
+    if (now - lastInitRef.current < 2000) {
+      console.log("Initialization throttled to prevent flickering");
+      return;
+    }
+    lastInitRef.current = now;
+
+    if (!mountedRef.current) return;
+
     setLoading(true);
     setError("");
+    setContract(null);
     try {
-      const web3Instance = await getWeb3();
+      let web3Instance = web3;
       if (!web3Instance) {
-        setError("Failed to initialize Web3. Please connect your wallet.");
-        return;
+        web3Instance = await Promise.race([
+          getWeb3(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Web3 provider timeout")), 10000)),
+        ]);
+        if (!web3Instance) {
+          throw new Error("Failed to initialize Web3. Please connect your wallet.");
+        }
+        setWeb3(web3Instance);
       }
-      setWeb3(web3Instance);
 
       const chainId = Number(await web3Instance.eth.getChainId());
-      setChainId(chainId);
-
       if (chainId !== 369) {
-        setError("Please connect to PulseChain (chainId 369).");
-        return;
+        throw new Error("Please connect to PulseChain (chainId 369).");
       }
+      setChainId(chainId);
 
       const account = await getAccount(web3Instance);
       if (!account) {
-        setError("No account found. Please connect your wallet.");
-        return;
+        throw new Error("No account found. Please connect your wallet.");
       }
       setAccount(account);
 
-      const contractAddress = contractAddresses[369]?.[contractSymbol];
-      const contractABI = contractABIs[contractSymbol];
+      const contractAddress = contractAddresses[369]?.[newContractSymbol];
+      const contractABI = contractABIs[newContractSymbol];
       if (!contractAddress || !contractABI) {
-        throw new Error(`Contract address or ABI not found for ${contractSymbol} on PulseChain`);
+        throw new Error(`Contract address or ABI not found for ${newContractSymbol} on PulseChain`);
       }
 
       const contractInstance = new web3Instance.eth.Contract(contractABI, contractAddress);
       setContract(contractInstance);
 
       setIsController(account.toLowerCase() === CONTROLLER_ADDRESS.toLowerCase());
-      console.log("App controller check:", {
-        account,
-        controllerAddress: CONTROLLER_ADDRESS,
-        isController: account.toLowerCase() === CONTROLLER_ADDRESS.toLowerCase(),
-        chainId,
-        contractAddress,
-        contractSymbol,
-      });
-
       console.log("App initialized:", {
         chainId,
         account,
         contractAddress,
-        contractSymbol,
+        contractSymbol: newContractSymbol,
       });
     } catch (error) {
       console.error("App initialization failed:", {
         error: error.message,
-        contractSymbol,
+        contractSymbol: newContractSymbol,
       });
       setError(`Initialization failed: ${error.message || "Unknown error"}`);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [web3, contractSymbol, contractABIs]);
 
   const onTransactionSuccess = () => {
     console.log("Transaction successful, reinitializing app...");
     initializeApp();
   };
 
+  const debounce = (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  const handleContractChange = useCallback(debounce((symbol) => {
+    setContractSymbol(symbol);
+    initializeApp(symbol);
+  }, 500), [initializeApp]);
+
   useEffect(() => {
+    mountedRef.current = true;
     if (!showFrontPage) {
       initializeApp();
     }
@@ -125,11 +146,16 @@ const App = () => {
       window.ethereum.on("accountsChanged", handleAccountsChanged);
 
       return () => {
+        mountedRef.current = false;
         window.ethereum.removeListener("chainChanged", handleChainChanged);
         window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
       };
     }
-  }, [contractSymbol, showFrontPage]);
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [showFrontPage, initializeApp]);
 
   const handleEnterApp = () => {
     setShowFrontPage(false);
@@ -142,7 +168,7 @@ const App = () => {
   if (loading) {
     return (
       <div className="min-h-screen gradient-bg flex flex-col items-center p-4">
-        <p className="text-center text-white">Loading...</p>
+        <p className="text-center text-white">Loading contract data...</p>
       </div>
     );
   }
@@ -164,27 +190,29 @@ const App = () => {
             ? `Interact with the ${contractSymbol} contract on PulseChain`
             : `Connect your wallet to interact with the contract`}
         </p>
-        <div className="mt-4">
-          <label className="text-gray-600 mr-2">Select Contract:</label>
-          <select
-            value={contractSymbol}
-            onChange={(e) => setContractSymbol(e.target.value)}
-            className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-            disabled={!web3 || chainId !== 369}
-          >
-            {["xBond", "iBond", "PLStr"].map((symbol) => (
-              <option key={symbol} value={symbol}>
-                {symbol}
-              </option>
-            ))}
-          </select>
+        <div className="mt-4 flex items-center gap-1">
+          <label className="text-gray-600 text-sm mr-1 whitespace-nowrap">Select Contract:</label>
+          {["xBond", "iBond", "PLStr"].map((symbol) => (
+            <button
+              key={symbol}
+              onClick={() => handleContractChange(symbol)}
+              disabled={!web3 || chainId !== 369 || loading}
+              className={`px-2 py-1 text-sm rounded-lg font-medium transition-colors whitespace-nowrap ${
+                contractSymbol === symbol
+                  ? "btn-primary"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              } ${(!web3 || chainId !== 369 || loading) ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              {symbol}
+            </button>
+          ))}
         </div>
         <ConnectWallet
           account={account}
           web3={web3}
           contractAddress={contractAddresses[369]?.[contractSymbol] || ""}
           chainId={chainId}
-          contractSymbol={contractSymbol} // Pass contractSymbol
+          contractSymbol={contractSymbol}
         />
       </header>
       <main className="w-full max-w-4xl space-y-6">
@@ -228,7 +256,7 @@ const App = () => {
             />
             {contractSymbol === "PLStr" && (
               <>
-                <ClaimPLStr // Fixed typo
+                <ClaimPLStr
                   contract={contract}
                   account={account}
                   web3={web3}
