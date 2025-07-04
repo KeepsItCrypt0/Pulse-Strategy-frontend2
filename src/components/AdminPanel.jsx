@@ -1,244 +1,168 @@
-// src/components/AdminPanel.jsx
 import { useState, useEffect } from "react";
+import { tokenAddresses, vPLS_ABI, PLStr_ABI } from "../web3"; // Added PLStr_ABI
 import { formatNumber } from "../utils/format";
 
-const AdminPanel = ({ web3, contract, account, chainId }) => {
-  const [mintAmount, setMintAmount] = useState("");
-  const [displayMintAmount, setDisplayMintAmount] = useState("");
+const AdminPanel = ({ contract, account, web3, chainId, contractSymbol, appIsController, onTransactionSuccess }) => {
   const [depositAmount, setDepositAmount] = useState("");
   const [displayDepositAmount, setDisplayDepositAmount] = useState("");
-  const [tokenAddress, setTokenAddress] = useState("");
-  const [recipientAddress, setRecipientAddress] = useState("");
-  const [recoverAmount, setRecoverAmount] = useState("");
-  const [displayRecoverAmount, setDisplayRecoverAmount] = useState("");
-  const [newOwner, setNewOwner] = useState("");
+  const [vPlsBalance, setVPlsBalance] = useState("0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mintCountdown, setMintCountdown] = useState("");
-  const [remainingSeconds, setRemainingSeconds] = useState("0");
 
-  const fetchMintInfo = async () => {
-    try {
-      setError("");
-      if (!contract) throw new Error("Contract not initialized");
-      const info = await contract.methods.getContractInfo().call();
-      setRemainingSeconds(info.remainingIssuancePeriod || "0");
-      console.log("remainingIssuancePeriod:", info.remainingIssuancePeriod);
-    } catch (err) {
-      console.error("Failed to fetch mint info:", err);
-      setError(`Failed to load mint info: ${err.message || "Unknown error"}`);
-      setRemainingSeconds("0");
-    }
-  };
+  const CONTROLLER_ADDRESS = "0x6aaE8556C69b795b561CB75ca83aF6187d2F0AF5";
 
-  useEffect(() => {
-    if (contract && web3 && chainId === 1) fetchMintInfo();
-  }, [contract, web3, chainId]);
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const seconds = Number(remainingSeconds);
-      if (seconds <= 0) {
-        setMintCountdown("Issuance Period Ended or Data Unavailable");
-        return;
-      }
-      const days = Math.floor(seconds / 86400);
-      const hours = Math.floor((seconds % 86400) / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
-      setMintCountdown(`${days}d ${hours}h ${minutes}m ${secs}s`);
-    };
-    if (chainId === 1) {
-      updateCountdown();
-      const interval = setInterval(updateCountdown, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [remainingSeconds, chainId]);
-
-  const handleNumericInputChange = (e, setRaw, setDisplay) => {
-    const rawValue = e.target.value.replace(/,/g, "");
-    if (rawValue === "" || /^-?\d*\.?\d*$/.test(rawValue)) {
-      setRaw(rawValue);
-      if (rawValue === "" || isNaN(rawValue)) {
-        setDisplay("");
-      } else {
-        setDisplay(
-          new Intl.NumberFormat("en-US", {
-            maximumFractionDigits: 18,
-            minimumFractionDigits: 0,
-          }).format(rawValue)
-        );
-      }
-    }
-  };
-
-  const handleMint = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const amountWei = web3.utils.toWei(mintAmount, "ether");
-      await contract.methods.mintShares(amountWei).send({ from: account });
-      alert("PLSTR minted successfully!");
-      setMintAmount("");
-      setDisplayMintAmount("");
-      fetchMintInfo();
-      console.log("PLSTR minted:", { amountWei });
-    } catch (err) {
-      setError(`Error minting PLSTR: ${err.message || "Unknown error"}`);
-      console.error("Mint error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeposit = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const amountWei = web3.utils.toWei(depositAmount, "ether");
-      await contract.methods.depositStakedPLS(amountWei).send({ from: account });
-      alert("vPLS deposited successfully!");
-      setDepositAmount("");
-      setDisplayDepositAmount("");
-      console.log("vPLS deposited:", { amountWei });
-    } catch (err) {
-      setError(`Error depositing vPLS: ${err.message || "Unknown error"}`);
-      console.error("Deposit error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRecover = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const amountWei = web3.utils.toWei(recoverAmount, "ether");
-      await contract.methods
-        .recoverTokens(tokenAddress, recipientAddress, amountWei)
-        .send({ from: account });
-      alert("Tokens recovered successfully!");
-      setTokenAddress("");
-      setRecipientAddress("");
-      setRecoverAmount("");
-      setDisplayRecoverAmount("");
-      console.log("Tokens recovered:", { tokenAddress, recipientAddress, amountWei });
-    } catch (err) {
-      setError(`Error recovering tokens: ${err.message || "Unknown error"}`);
-      console.error("Recover error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTransferOwnership = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      await contract.methods.transferOwnership(newOwner).send({ from: account });
-      alert("Ownership transferred successfully!");
-      setNewOwner("");
-      console.log("Ownership transferred:", { newOwner });
-    } catch (err) {
-      setError(`Error transferring ownership: ${err.message || "Unknown error"}`);
-      console.error("Transfer ownership error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (chainId !== 1) {
-    console.log("Admin panel not rendered:", { chainId });
-    return null;
+  // Null checks for props
+  if (!web3 || !contract || !account || !chainId || !contractSymbol) {
+    console.warn("AdminPanel: Missing required props", {
+      web3: !!web3,
+      contract: !!contract,
+      account,
+      chainId,
+      contractSymbol,
+    });
+    return <div className="text-gray-600 p-6">Loading contract data...</div>;
   }
 
+  if (chainId !== 369) {
+    console.log("AdminPanel: Invalid chainId", { chainId });
+    return <div className="text-gray-600 p-6">Please connect to PulseChain</div>;
+  }
+
+  const fromUnits = (balance) => {
+    try {
+      if (!balance || balance === "0") return "0";
+      return web3.utils.fromWei(balance.toString(), "ether");
+    } catch (err) {
+      console.error("Error converting balance:", { balance, error: err.message });
+      return "0";
+    }
+  };
+
+  // Fetch vPLS balance for PLStr
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log("AdminPanel loaded:", {
+          contractSymbol,
+          account,
+          controllerAddress: CONTROLLER_ADDRESS,
+          appIsController,
+          contractAddress: contract.options.address,
+        });
+
+        if (contractSymbol === "PLStr") {
+          const vPlsContract = new web3.eth.Contract(vPLS_ABI, tokenAddresses[369].vPLS);
+          const balance = await vPlsContract.methods.balanceOf(account).call();
+          setVPlsBalance(fromUnits(balance));
+        }
+      } catch (err) {
+        console.error("Error fetching admin data:", {
+          error: err.message,
+          contractSymbol,
+          contractAddress: contract.options.address,
+        });
+        setError("Failed to load admin data");
+      }
+    };
+    if (web3 && contract && account) {
+      fetchData();
+    }
+  }, [contract, account, web3, chainId, contractSymbol]);
+
+  // Format input value with commas
+  const formatInputValue = (value) => {
+    if (!value) return "";
+    const num = Number(value.replace(/,/g, ""));
+    if (isNaN(num)) return value;
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 18,
+      minimumFractionDigits: 0,
+    }).format(num);
+  };
+
+  // Handle deposit amount change
+  const handleDepositAmountChange = (e) => {
+    const rawValue = e.target.value.replace(/,/g, "");
+    if (rawValue === "" || /^[0-9]*\.?[0-9]*$/.test(rawValue)) {
+      setDepositAmount(rawValue);
+      setDisplayDepositAmount(formatInputValue(rawValue));
+    }
+  };
+
+  // Convert amount to vPLS units (18 decimals)
+  const toTokenUnits = (amount) => {
+    try {
+      if (!amount || Number(amount) <= 0) return "0";
+      return web3.utils.toWei(amount, "ether");
+    } catch (err) {
+      console.error("Error converting amount to token units:", { amount, error: err.message });
+      return "0";
+    }
+  };
+
+  const handleDepositTokens = async () => {
+    if (contractSymbol !== "PLStr") return;
+    if (!depositAmount || Number(depositAmount) <= 0 || Number(depositAmount) > Number(vPlsBalance)) {
+      setError("Please enter a valid vPLS amount within your balance");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const tokenAmount = toTokenUnits(depositAmount);
+      if (tokenAmount === "0") throw new Error("Invalid token amount");
+      const tokenContract = new web3.eth.Contract(vPLS_ABI, tokenAddresses[369].vPLS);
+      const allowance = await tokenContract.methods.allowance(account, contract.options.address).call();
+      if (BigInt(allowance) < BigInt(tokenAmount)) {
+        await tokenContract.methods.approve(contract.options.address, tokenAmount).send({ from: account });
+      }
+      await contract.methods.depositTokens(tokenAmount).send({ from: account });
+      alert(`Successfully deposited ${depositAmount} vPLS!`);
+      setDepositAmount("");
+      setDisplayDepositAmount("");
+      const balance = await tokenContract.methods.balanceOf(account).call();
+      setVPlsBalance(fromUnits(balance));
+      if (onTransactionSuccess) {
+        onTransactionSuccess();
+      }
+    } catch (err) {
+      setError(`Error depositing vPLS: ${err.message}`);
+      console.error("Deposit tokens error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="bg-white bg-opacity-90 rounded-lg p-6 card">
-      <h2 className="text-xl font-semibold mb-4 text-gray-600">PLSTR Admin Panel</h2>
-      <p className="text-gray-600 mb-4">Next Mint In: {mintCountdown}</p>
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">Mint PLSTR</h3>
-        <input
-          type="text"
-          value={displayMintAmount}
-          onChange={(e) => handleNumericInputChange(e, setMintAmount, setDisplayMintAmount)}
-          placeholder="Amount to mint"
-          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
-        />
-        <button
-          onClick={handleMint}
-          disabled={loading || !mintAmount}
-          className="btn-primary w-full"
-        >
-          {loading ? "Processing..." : "Mint PLSTR"}
-        </button>
-      </div>
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">Deposit vPLS</h3>
-        <input
-          type="text"
-          value={displayDepositAmount}
-          onChange={(e) => handleNumericInputChange(e, setDepositAmount, setDisplayDepositAmount)}
-          placeholder="Amount to deposit"
-          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
-        />
-        <button
-          onClick={handleDeposit}
-          disabled={loading || !depositAmount}
-          className="btn-primary w-full"
-        >
-          {loading ? "Processing..." : "Deposit vPLS"}
-        </button>
-      </div>
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">Recover Tokens</h3>
-        <input
-          type="text"
-          value={tokenAddress}
-          onChange={(e) => setTokenAddress(e.target.value)}
-          placeholder="Token address"
-          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
-        />
-        <input
-          type="text"
-          value={recipientAddress}
-          onChange={(e) => setRecipientAddress(e.target.value)}
-          placeholder="Recipient address"
-          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
-        />
-        <input
-          type="text"
-          value={displayRecoverAmount}
-          onChange={(e) => handleNumericInputChange(e, setRecoverAmount, setDisplayRecoverAmount)}
-          placeholder="Amount to recover"
-          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
-        />
-        <button
-          onClick={handleRecover}
-          disabled={loading || !tokenAddress || !recipientAddress || !recoverAmount}
-          className="btn-primary w-full"
-        >
-          {loading ? "Processing..." : "Recover Tokens"}
-        </button>
-      </div>
-      <div>
-        <h3 className="text-lg font-medium mb-2">Transfer Ownership</h3>
-        <input
-          type="text"
-          value={newOwner}
-          onChange={(e) => setNewOwner(e.target.value)}
-          placeholder="New owner address"
-          className="w-full p-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
-        />
-        <button
-          onClick={handleTransferOwnership}
-          disabled={loading || !newOwner}
-          className="btn-primary w-full"
-        >
-          {loading ? "Processing..." : "Transfer Ownership"}
-        </button>
-      </div>
-      {error && <p className="text-red-700 mt-4">{error}</p>}
+    <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
+      <h2 className="text-xl font-semibold mb-4 text-[#4B0082]">Admin Panel - {contractSymbol}</h2>
+      {contractSymbol === "PLStr" && (
+        <>
+          <h3 className="text-lg font-medium mb-2">Deposit vPLS</h3>
+          <p className="text-gray-600 mb-2">
+            vPLS Balance: <span className="text-[#4B0082]">{formatNumber(vPlsBalance)} vPLS</span>
+          </p>
+          <div className="mb-4">
+            <label className="text-gray-600">Amount (vPLS)</label>
+            <input
+              type="text"
+              value={displayDepositAmount}
+              onChange={handleDepositAmountChange}
+              placeholder="Enter vPLS amount"
+              className="w-full p-2 border rounded-lg"
+              disabled={loading}
+            />
+          </div>
+          <button
+            onClick={handleDepositTokens}
+            disabled={loading || !depositAmount || Number(depositAmount) <= 0}
+            className="btn-primary mb-4"
+          >
+            {loading ? "Processing..." : "Deposit vPLS"}
+          </button>
+        </>
+      )}
+      {error && <p className="text-[#8B0000] mt-2">{error}</p>}
     </div>
   );
 };
