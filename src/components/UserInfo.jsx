@@ -51,10 +51,10 @@ const UserInfo = ({ contract, account, web3, chainId, contractSymbol }) => {
       if (contractSymbol === "PLStr") {
         const metrics = await contract.methods.getBasicMetrics().call();
         console.log("getBasicMetrics result for PLStr:", { metrics });
-        const { contractTotalSupply, vPlsBalance } = Array.isArray(metrics)
-          ? { contractTotalSupply: metrics[0], vPlsBalance: metrics[1] }
+        const { contractTotalSupply, vPlsBalance, totalClaimablePLStr } = Array.isArray(metrics)
+          ? { contractTotalSupply: metrics[0], vPlsBalance: metrics[1], totalClaimablePLStr: metrics[5] }
           : metrics;
-        totalSupply = contractTotalSupply;
+        totalSupply = BigInt(contractTotalSupply) + BigInt(totalClaimablePLStr); // Include unclaimed PLStr
         backingTokenBalance = vPlsBalance;
         redeemableTokenSymbol = "vPLS";
       } else if (contractSymbol === "xBond" && tokenAddrs.PLSX) {
