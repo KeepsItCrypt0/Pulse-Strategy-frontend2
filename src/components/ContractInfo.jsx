@@ -17,6 +17,7 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
       totalClaimablePLStr: "0",
     },
     issuanceStatus: { isActive: false, timeRemaining: 0 },
+    daysUntilExpiration: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,6 +59,20 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
 
       const [totalSupply, metrics, extraData] = await Promise.all(promises);
 
+      console.log("Raw contract data:", {
+        contractSymbol,
+        totalSupply,
+        metrics,
+        daysUntilExpiration: isPLStr ? extraData : undefined,
+        issuanceStatus: !isPLStr ? extraData : undefined,
+      });
+
+      const contractTotalSupply = Number(fromUnits(metrics[0]));
+      const vPlsBalance = isPLStr ? Number(fromUnits(metrics[1])) : 0;
+      const totalClaimablePLStr = isPLStr ? Number(fromUnits(metrics[5])) : 0;
+      const effectiveSupply = Number(extraData) === 0 ? contractTotalSupply : contractTotalSupply + totalClaimablePLStr;
+      const vPlsBackingRatio = effectiveSupply > 0 ? (vPlsBalance / effectiveSupply).toFixed(4) : "1.0000";
+
       const data = {
         totalSupply: fromUnits(totalSupply),
         metrics: isPLStr
@@ -67,8 +82,8 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
               incBalance: "0",
               totalMinted: fromUnits(metrics[2]),
               totalBurned: fromUnits(metrics[3]),
-              vPlsBackingRatio: Number(extraData) === 0 ? "1.0000" : Number(fromUnits(metrics[4])).toFixed(4), // 1:1 if expired
-              totalClaimablePLStr: fromUnits(metrics[5]),
+              vPlsBackingRatio,
+              totalClaimablePLStr: Number(extraData) === 0 ? "0" : fromUnits(metrics[5]),
             }
           : {
               vPlsBalance: "0",
@@ -84,6 +99,7 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
         issuanceStatus: isPLStr
           ? { isActive: false, timeRemaining: 0 }
           : { isActive: extraData[0], timeRemaining: Number(extraData[1]) },
+        daysUntilExpiration: isPLStr ? Number(extraData) : 0,
       };
 
       setContractData(data);
@@ -129,6 +145,9 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
               </p>
               <p className="text-gray-600">
                 Total Claimable PLStr: <span className="text-[#4B0082]">{formatNumber(contractData.metrics.totalClaimablePLStr)} PLStr</span>
+              </p>
+              <p className="text-gray-600">
+                Days Until Claimable PLStr Expiration: <span className="text-[#4B0082]">{contractData.daysUntilExpiration} days</span>
               </p>
             </>
           )}
