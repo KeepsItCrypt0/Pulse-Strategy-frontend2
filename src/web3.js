@@ -3,9 +3,9 @@ import Web3 from "web3";
 // Contract addresses
 export const contractAddresses = {
   369: {
-    iBond: "0xD9d320D7CC57310C5A1f2bbAA74113f9504488dA",
-    xBond: "0xa003AcfA03CEdfce8fC62d8fd7ad3FD5fBbCBBEc",
-    PLStr: "0x2106bc17094492ffa5032371BfA93b1206a5dd83",
+    iBond: "0xb67073Fe8F2A41807E038b1F91572bEad3950c84",
+    xBond: "0xe81AB1BFaa001EaE4f226F8a8D3d607dC76D5b0A",
+    PLStr: "0x045f61b8aee470b88aac3ac5b3e06372e1025216",
   },
 };
 
@@ -2160,11 +2160,6 @@ export const iBond_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "InsufficientBalance",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "InsufficientContractBalance",
 		"type": "error"
 	},
@@ -2175,7 +2170,7 @@ export const iBond_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "IssuancePeriodEnded",
+		"name": "MaxSupplyReached",
 		"type": "error"
 	},
 	{
@@ -2318,7 +2313,7 @@ export const iBond_ABI = [
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "iBondToOriginAddress",
+				"name": "iBONDToOriginAddress",
 				"type": "uint256"
 			},
 			{
@@ -2455,7 +2450,7 @@ export const iBond_ABI = [
 			},
 			{
 				"internalType": "uint256",
-				"name": "timeRemaining",
+				"name": "supplyRemaining",
 				"type": "uint256"
 			}
 		],
@@ -2681,11 +2676,6 @@ export const xBond_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "InsufficientBalance",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "InsufficientContractBalance",
 		"type": "error"
 	},
@@ -2696,7 +2686,7 @@ export const xBond_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "IssuancePeriodEnded",
+		"name": "MaxSupplyReached",
 		"type": "error"
 	},
 	{
@@ -2839,7 +2829,7 @@ export const xBond_ABI = [
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "xBondToOriginAddress",
+				"name": "xBONDToOriginAddress",
 				"type": "uint256"
 			},
 			{
@@ -2976,7 +2966,7 @@ export const xBond_ABI = [
 			},
 			{
 				"internalType": "uint256",
-				"name": "timeRemaining",
+				"name": "supplyRemaining",
 				"type": "uint256"
 			}
 		],
