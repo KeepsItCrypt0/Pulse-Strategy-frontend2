@@ -16,7 +16,7 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
       incBackingRatio: "0",
       totalClaimablePLStr: "0",
     },
-    issuanceStatus: { isActive: false, timeRemaining: 0 },
+    issuanceStatus: { isActive: false, supplyRemaining: "0" },
     daysUntilExpiration: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -30,13 +30,6 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
       console.error("Error converting balance:", { balance, error: err.message });
       return "0";
     }
-  };
-
-  const formatTimeRemaining = (seconds) => {
-    if (seconds <= 0) return "0";
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    return `${days} day${days !== 1 ? "s" : ""}, ${hours} hour${hours !== 1 ? "s" : ""}`;
   };
 
   const fetchContractData = async () => {
@@ -97,8 +90,8 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
               totalClaimablePLStr: "0",
             },
         issuanceStatus: isPLStr
-          ? { isActive: false, timeRemaining: 0 }
-          : { isActive: extraData[0], timeRemaining: Number(extraData[1]) },
+          ? { isActive: false, supplyRemaining: "0" }
+          : { isActive: extraData[0], supplyRemaining: fromUnits(extraData[1]) },
         daysUntilExpiration: isPLStr ? Number(extraData) : 0,
       };
 
@@ -152,13 +145,27 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
             </>
           )}
           {contractSymbol !== "PLStr" && (
-            <p className="text-gray-600">
-              {contractSymbol === "xBond" ? "PLSX" : "INC"} Balance:{" "}
-              <span className="text-[#4B0082]">
-                {formatNumber(contractSymbol === "xBond" ? contractData.metrics.plsxBalance : contractData.metrics.incBalance)}{" "}
-                {contractSymbol === "xBond" ? "PLSX" : "INC"}
-              </span>
-            </p>
+            <>
+              <p className="text-gray-600">
+                Issuance Status:{" "}
+                <span className="text-[#4B0082]">
+                  {contractData.issuanceStatus.isActive ? "Active" : "Ended"}
+                </span>
+              </p>
+              <p className="text-gray-600">
+                Supply Remaining:{" "}
+                <span className="text-[#4B0082]">
+                  {formatNumber(contractData.issuanceStatus.supplyRemaining)} {contractSymbol}
+                </span>
+              </p>
+              <p className="text-gray-600">
+                {contractSymbol === "xBond" ? "PLSX" : "INC"} Balance:{" "}
+                <span className="text-[#4B0082]">
+                  {formatNumber(contractSymbol === "xBond" ? contractData.metrics.plsxBalance : contractData.metrics.incBalance)}{" "}
+                  {contractSymbol === "xBond" ? "PLSX" : "INC"}
+                </span>
+              </p>
+            </>
           )}
           <p className="text-gray-600">
             Total Supply: <span className="text-[#4B0082]">{formatNumber(contractData.totalSupply)} {contractSymbol}</span>
@@ -175,28 +182,12 @@ const ContractInfo = ({ contract, web3, chainId, contractSymbol }) => {
             </p>
           )}
           {contractSymbol !== "PLStr" && (
-            <>
-              <p className="text-gray-600">
-                Backing Ratio:{" "}
-                <span className="text-[#4B0082]">
-                  {formatNumber(contractSymbol === "xBond" ? contractData.metrics.plsxBackingRatio : contractData.metrics.incBackingRatio)}
-                </span>
-              </p>
-              <p className="text-gray-600">
-                Issuance Status:{" "}
-                <span className="text-[#4B0082]">
-                  {contractData.issuanceStatus.isActive ? "Active" : "Ended"}
-                </span>
-              </p>
-              <p className="text-gray-600">
-                Time Remaining:{" "}
-                <span className="text-[#4B0082]">
-                  {contractData.issuanceStatus.isActive
-                    ? formatTimeRemaining(contractData.issuanceStatus.timeRemaining)
-                    : "0"}
-                </span>
-              </p>
-            </>
+            <p className="text-gray-600">
+              Backing Ratio:{" "}
+              <span className="text-[#4B0082]">
+                {formatNumber(contractSymbol === "xBond" ? contractData.metrics.plsxBackingRatio : contractData.metrics.incBackingRatio)}
+              </span>
+            </p>
           )}
         </>
       )}
