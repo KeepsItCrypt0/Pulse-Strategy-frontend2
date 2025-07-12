@@ -6,6 +6,10 @@ const IssueShares = ({ web3, contract, account, chainId, contractSymbol, onTrans
   const [amount, setAmount] = useState("");
   const [displayAmount, setDisplayAmount] = useState("");
   const [tokenBalance, setTokenBalance] = useState("0");
+  const [contractMetrics, setContractMetrics] = useState({
+    totalSupply: "0",
+    tokenBalance: "0",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -76,8 +80,24 @@ const IssueShares = ({ web3, contract, account, chainId, contractSymbol, onTrans
     }
   };
 
+  const fetchContractMetrics = async () => {
+    try {
+      const metrics = await contract.methods.getContractMetrics().call();
+      setContractMetrics({
+        totalSupply: metrics.contractTotalSupply,
+        tokenBalance: metrics[contractSymbol === "xBond" ? "plsxBalance" : "incBalance"],
+      });
+    } catch (err) {
+      console.error("Fetch contract metrics error:", err);
+      setError("Failed to load contract metrics");
+    }
+  };
+
   useEffect(() => {
-    if (web3 && contract && account && chainId === 369) fetchTokenBalance();
+    if (web3 && contract && account && chainId === 369) {
+      fetchTokenBalance();
+      fetchContractMetrics();
+    }
   }, [web3, contract, account, chainId, contractSymbol]);
 
   if (chainId !== 369) {
@@ -102,10 +122,11 @@ const IssueShares = ({ web3, contract, account, chainId, contractSymbol, onTrans
         await tokenContract.methods.approve(contractAddresses[369][contractSymbol], tokenAmount).send({ from: account });
       }
       await contract.methods.issueShares(tokenAmount).send({ from: account });
-      alert(`Successfully issued ${contractSymbol} shares with ${amount} ${token.symbol}!`);
+      alert(`Successfully issued ${contractSymbol} shares with ${amount} ${defaultToken}!`);
       setAmount("");
       setDisplayAmount("");
       fetchTokenBalance();
+      fetchContractMetrics();
       if (onTransactionSuccess) {
         onTransactionSuccess();
       }
@@ -117,8 +138,38 @@ const IssueShares = ({ web3, contract, account, chainId, contractSymbol, onTrans
     }
   };
 
-  const estimatedShares = amount ? (Number(amount) * 0.995).toFixed(6) : "0";
-  const feeAmount = amount ? (Number(amount) * 0.005).toFixed(6) : "0";
+  const calculateEstimatedShares = () => {
+    if (!amount || Number(amount) <= 0) return { shares: "0", fee: "0" };
+
+    const FEE_BASIS_POINTS = 50; // 0.5%
+    const BASIS_DENOMINATOR = 10000;
+    const MIN_LIQUIDITY = web3.utils.toWei("1", "ether");
+
+    const tokenAmount = toTokenUnits(amount, 18);
+    if (BigInt(tokenAmount) < BigInt(MIN_LIQUIDITY)) return { shares: "0", fee: "0" };
+
+    const fee = (BigInt(tokenAmount) * BigInt(FEE_BASIS_POINTS)) / BigInt(BASIS_DENOMINATOR);
+    const feeToOriginAddress = fee / BigInt(2);
+    const userContribution = BigInt(tokenAmount) - BigInt(fee);
+
+    const totalSupply = BigInt(contractMetrics.totalSupply);
+    const tokenBalance = BigInt(contractMetrics.tokenBalance);
+
+    let shares;
+    if (totalSupply === BigInt(0)) {
+      shares = userContribution;
+    } else {
+      // Replicate Math.mulDiv with Floor rounding
+      shares = (userContribution * totalSupply) / tokenBalance;
+    }
+
+    return {
+      shares: fromUnits(shares.toString()),
+      fee: fromUnits(fee.toString()),
+    };
+  };
+
+  const { shares: estimatedShares, fee: feeAmount } = calculateEstimatedShares();
 
   return (
     <div className="bg-white bg-opacity-90 shadow-lg rounded-lg p-6 card">
